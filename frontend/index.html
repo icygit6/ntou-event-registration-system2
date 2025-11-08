@@ -110,6 +110,7 @@
       border: 1px solid #475569;
       background: #0f172a;
       color: var(--text);
+      box-sizing: border-box;
     }
 
     .close-btn {
@@ -132,6 +133,29 @@
 
     .submit-btn:hover {
       opacity: 0.9;
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .error-msg {
+      color: #ef4444;
+      font-size: 0.85rem;
+      margin-bottom: 10px;
+      display: none;
+    }
+
+    .success-msg {
+      color: #10b981;
+      font-size: 0.85rem;
+      margin-bottom: 10px;
+      display: none;
+    }
+
+    #nicknameField {
+      display: none;
     }
   </style>
 </head>
@@ -164,9 +188,15 @@
     <div class="modal-content">
       <span class="close-btn" id="closeModal">&times;</span>
       <h3 id="modalTitle">Sign In</h3>
+      
+      <div class="error-msg" id="errorMsg"></div>
+      <div class="success-msg" id="successMsg"></div>
+      
       <form id="authForm">
-        <label>Nickname:</label>
-        <input type="text" id="nickname" required>
+        <div id="nicknameField">
+          <label>Nickname:</label>
+          <input type="text" id="nickname">
+        </div>
 
         <label>Email or Phone:</label>
         <input type="text" id="emailOrPhone" required>
@@ -180,18 +210,48 @@
   </div>
 
   <script>
+    const API_URL = 'http://localhost:5000';
+    
     const loginBtn = document.getElementById('loginBtn');
     const registerBtn = document.getElementById('registerBtn');
     const modal = document.getElementById('authModal');
     const closeModal = document.getElementById('closeModal');
     const modalTitle = document.getElementById('modalTitle');
     const submitBtn = document.getElementById('submitBtn');
+    const nicknameField = document.getElementById('nicknameField');
+    const errorMsg = document.getElementById('errorMsg');
+    const successMsg = document.getElementById('successMsg');
+    const authForm = document.getElementById('authForm');
+
+    let isRegisterMode = false;
+
+    function showError(message) {
+      errorMsg.textContent = message;
+      errorMsg.style.display = 'block';
+      successMsg.style.display = 'none';
+    }
+
+    function showSuccess(message) {
+      successMsg.textContent = message;
+      successMsg.style.display = 'block';
+      errorMsg.style.display = 'none';
+    }
+
+    function hideMessages() {
+      errorMsg.style.display = 'none';
+      successMsg.style.display = 'none';
+    }
 
     // Open login modal
     loginBtn.onclick = () => {
       modal.style.display = 'flex';
       modalTitle.textContent = 'Sign In';
       submitBtn.textContent = 'Sign In';
+      nicknameField.style.display = 'none';
+      document.getElementById('nickname').removeAttribute('required');
+      isRegisterMode = false;
+      hideMessages();
+      authForm.reset();
     };
 
     // Open register modal
@@ -199,19 +259,99 @@
       modal.style.display = 'flex';
       modalTitle.textContent = 'Register';
       submitBtn.textContent = 'Register';
+      nicknameField.style.display = 'block';
+      document.getElementById('nickname').setAttribute('required', 'required');
+      isRegisterMode = true;
+      hideMessages();
+      authForm.reset();
     };
 
     // Close modal
-    closeModal.onclick = () => modal.style.display = 'none';
+    closeModal.onclick = () => {
+      modal.style.display = 'none';
+      hideMessages();
+    };
+    
     window.onclick = (e) => {
-      if (e.target === modal) modal.style.display = 'none';
+      if (e.target === modal) {
+        modal.style.display = 'none';
+        hideMessages();
+      }
     };
 
     // Form submission
-    document.getElementById('authForm').addEventListener('submit', (e) => {
+    authForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      alert(`${modalTitle.textContent} successful!`);
-      modal.style.display = 'none';
+      hideMessages();
+      
+      const emailOrPhone = document.getElementById('emailOrPhone').value.trim();
+      const password = document.getElementById('password').value;
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Processing...';
+
+      try {
+        if (isRegisterMode) {
+          // Register
+          const nickname = document.getElementById('nickname').value.trim();
+          
+          const response = await fetch(`${API_URL}/register`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              nickname: nickname,
+              email_or_phone: emailOrPhone,
+              password: password
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            showSuccess('Registration successful! You can now sign in.');
+            setTimeout(() => {
+              modal.style.display = 'none';
+              hideMessages();
+            }, 2000);
+          } else {
+            showError(data.error || 'Registration failed');
+          }
+        } else {
+          // Login
+          const response = await fetch(`${API_URL}/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email_or_phone: emailOrPhone,
+              password: password
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            showSuccess('Login successful!');
+            setTimeout(() => {
+              modal.style.display = 'none';
+              hideMessages();
+              // You can redirect or update UI here
+              alert('Welcome! You are now logged in.');
+            }, 1500);
+          } else {
+            showError(data.error || 'Login failed');
+          }
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showError('Connection error. Make sure your server is running on port 5000.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = isRegisterMode ? 'Register' : 'Sign In';
+      }
     });
   </script>
 
