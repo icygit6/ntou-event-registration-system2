@@ -1,68 +1,105 @@
-import express from "express";
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import cors from "cors";
-import bcrypt from "bcryptjs";
-
-dotenv.config();
+// backend/index.js
+const express = require('express');
+const cors = require('cors');
+const bcrypt = require('bcrypt');
+const SALT_ROUNDS = 10;
+const { MongoClient } = require('mongodb');
 const app = express();
-app.use(express.json());
+const port = 5500;
+
 app.use(cors());
+app.use(express.json());
 
-// ✅ Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch(err => console.error("❌ MongoDB connection failed:", err));
+const client = new MongoClient('mongodb://127.0.0.1:27017');
+const dbName = 'eventRegistration';
+let db;
 
-// ✅ Define User Schema
-const userSchema = new mongoose.Schema({
-  nickname: String,
-  email_or_phone: { type: String, unique: true },
-  password: String,
-});
-
-const User = mongoose.model("User", userSchema);
-
-// ✅ Register Route
-app.post("/register", async (req, res) => {
-  try {
-    const { nickname, email_or_phone, password } = req.body;
-    if (!nickname || !email_or_phone || !password) {
-      return res.status(400).json({ error: "All fields are required." });
+// Connect to MongoDB
+async function connectDB() {
+    try {
+        await client.connect();
+        db = client.db(dbName);
+        console.log(`Connected to DB: ${dbName}`);
+    } catch (err) {
+        console.error("❌ Database connection failed:", err);
+        process.exit(1); // stop if DB fails
     }
+}
 
-    const existingUser = await User.findOne({ email_or_phone });
-    if (existingUser) {
-      return res.status(400).json({ error: "User already exists." });
+// Wait for DB connection before starting server
+connectDB().then(() => {
+    app.listen(port, () => {
+        console.log(`Server running at http://localhost:${port}`);
+    });
+}).catch(err => {
+    console.error("❌ Could not start server:", err);
+});
+
+// ---------- Endpoint to get next incremental ID ----------
+app.get('/nextId', async (req, res) => {
+    try {
+        const result = await db.collection('counters').findOneAndUpdate(
+            { _id: 'userId' },
+            { $inc: { seq: 1 } },
+            { returnDocument: 'after', upsert: true }
+        );
+
+        const nextId = result.value ? result.value.seq : 1; // handle first insert
+        res.json({ nextId });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to get next ID' });
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ nickname, email_or_phone, password: hashedPassword });
-    await newUser.save();
-
-    res.json({ message: "Registration successful!" });
-  } catch (err) {
-    res.status(500).json({ error: "Server error." });
-  }
 });
 
-// ✅ Login Route
-app.post("/login", async (req, res) => {
-  try {
-    const { email_or_phone, password } = req.body;
-    const user = await User.findOne({ email_or_phone });
-    if (!user) return res.status(400).json({ error: "User not found." });
+// ---------- Register endpoint ----------
+app.post('/register', async (req, res) => {
+    try {
+        const { id, nickname, email_or_phone, password } = req.body;
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ error: "Invalid password." });
+        // Get next user ID
+        if (!id || !nickname || !email_or_phone || !password) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
 
-    res.json({ message: "Login successful!" });
-  } catch (err) {
-    res.status(500).json({ error: "Server error." });
-  }
+        const role = 'user';
+        const created_at = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+        const newUser = {
+            id,
+            name: nickname,
+            email: email_or_phone,
+            password_hash: hashedPassword,
+            role,
+            created_at
+        };
+
+        const result = await db.collection('users').insertOne(newUser);
+
+        console.log('User registered successfully:', result.insertedId);
+        res.json({ message: 'Registration successful', id: result.insertedId });
+
+    } catch (error) {
+        console.error('Error during registration:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
-// ✅ Start Server
-app.listen(process.env.PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${process.env.PORT}`);
+// -------------Sign In Endpoint-------------
+app.post('/signin', async (req, res) => {
+    try {
+        const { email_or_phone, password } = req.body;
+
+        const user = await db.collection('users').findOne({ email: email_or_phone });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        if (!isMatch) return res.status(401).json({ error: 'Incorrect password' });
+
+        res.json({ message: 'Sign In successful', userId: user.id });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });

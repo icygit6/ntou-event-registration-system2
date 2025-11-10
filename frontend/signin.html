@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/signin.js" defer></script>
+</head>
+<body>
+
+  <main class="form-container">
+    <div class="form-content">
+        <h3>Sign In</h3>
+
+        <div class="error-msg" id="errorMsg"></div>
+        <div class="success-msg" id="successMsg"></div>
+        
+        <form id="signForm">
+            <label>Email:</label>
+            <input type="text" id="emailOrPhone" required>
+            <label>Password:</label>
+            <input type="password" id="password" required>
+            <button type="submit" class="submit-btn" id="submit-btn">Sign In</button>
+        </form>
+    </div>
+  </main>
+  
+</body>
+</html>
