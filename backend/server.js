@@ -1,45 +1,68 @@
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const db = require('./db');
+import express from "express";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import cors from "cors";
+import bcrypt from "bcryptjs";
 
+dotenv.config();
 const app = express();
+app.use(express.json());
 app.use(cors());
-app.use(bodyParser.json());
 
-// 🟢 Register User
-app.post('/register', (req, res) => {
-  const { nickname, email_or_phone, password } = req.body;
-  if (!nickname || !email_or_phone || !password) {
-    return res.status(400).json({ error: 'All fields required' });
+// ✅ Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ Connected to MongoDB"))
+  .catch(err => console.error("❌ MongoDB connection failed:", err));
+
+// ✅ Define User Schema
+const userSchema = new mongoose.Schema({
+  nickname: String,
+  email_or_phone: { type: String, unique: true },
+  password: String,
+});
+
+const User = mongoose.model("User", userSchema);
+
+// ✅ Register Route
+app.post("/register", async (req, res) => {
+  try {
+    const { nickname, email_or_phone, password } = req.body;
+    if (!nickname || !email_or_phone || !password) {
+      return res.status(400).json({ error: "All fields are required." });
+    }
+
+    const existingUser = await User.findOne({ email_or_phone });
+    if (existingUser) {
+      return res.status(400).json({ error: "User already exists." });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ nickname, email_or_phone, password: hashedPassword });
+    await newUser.save();
+
+    res.json({ message: "Registration successful!" });
+  } catch (err) {
+    res.status(500).json({ error: "Server error." });
   }
-
-  const sql = 'INSERT INTO users (nickname, email_or_phone, password) VALUES (?, ?, ?)';
-  db.query(sql, [nickname, email_or_phone, password], (err, result) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json({ message: 'User registered successfully!' });
-  });
 });
 
-// 🟣 Login User
-app.post('/login', (req, res) => {
-  const { email_or_phone, password } = req.body;
-  const sql = 'SELECT * FROM users WHERE email_or_phone = ? AND password = ?';
-  db.query(sql, [email_or_phone, password], (err, results) => {
-    if (err) throw err;
-    if (results.length > 0) {
-      res.json({ message: 'Login successful!' });
-    } else {
-      res.status(401).json({ error: 'Invalid credentials' });
-    }
-  });
+// ✅ Login Route
+app.post("/login", async (req, res) => {
+  try {
+    const { email_or_phone, password } = req.body;
+    const user = await User.findOne({ email_or_phone });
+    if (!user) return res.status(400).json({ error: "User not found." });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ error: "Invalid password." });
+
+    res.json({ message: "Login successful!" });
+  } catch (err) {
+    res.status(500).json({ error: "Server error." });
+  }
 });
 
-// 🟢 Start Server
-const PORT = 5500;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+// ✅ Start Server
+app.listen(process.env.PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${process.env.PORT}`);
 });
