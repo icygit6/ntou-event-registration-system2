@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Events</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/events.js" defer></script>
+</head>
+<body>
+  
+  <header>
+    <div class="logo">海大活動報名系統</div>
+    <div class="buttons">
+      <a href="index.html"><button class="ghost">Back to Home</button></a>
+      <button id="logoutBtn" class="ghost">Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="page-header">
+      <h2>管理活動 (Manage Events)</h2>
+      <button id="addEventBtn" class="submit-btn">+ Add New Event</button>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="success-msg" id="successMsg"></div>
+
+    <!-- Add/Edit Event Form -->
+    <div id="eventFormContainer" class="form-section" style="display: none;">
+      <div class="form-content">
+        <h3 id="formTitle">Add New Event</h3>
+        <form id="eventForm">
+          <label>Event Title:</label>
+          <input type="text" id="eventTitle" required>
+          
+          <label>Event Date:</label>
+          <input type="date" id="eventDate" required>
+          
+          <label>Location:</label>
+          <input type="text" id="eventLocation" required>
+          
+          <label>Description (Optional):</label>
+          <textarea id="eventDescription" rows="4"></textarea>
+          
+          <div class="button-group">
+            <button type="submit" class="submit-btn" id="submitEventBtn">Save Event</button>
+            <button type="button" class="cancel-btn" id="cancelBtn">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Events List -->
+    <div id="eventsList" class="events-container">
+      <!-- Events will be loaded here -->
+    </div>
+  </main>
+
+</body>
+</html>

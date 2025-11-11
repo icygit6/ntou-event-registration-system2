@@ -1,31 +1,73 @@
 const API_URL = 'http://localhost:5500';
+
+const headerButtons = document.getElementById('headerButtons');
+const eventsList = document.getElementById('eventsList');
+
+// Check if user is logged in
+const currentUser = sessionStorage.getItem('currentUser');
+
+// Update header based on login status
+if (currentUser) {
+    headerButtons.innerHTML = `
+        <a href="events.html"><button>Manage Events</button></a>
+        <button class="ghost" id="logoutBtn">Logout</button>
+    `;
     
-const loginBtn = document.getElementById('loginBtn');
-const registerBtn = document.getElementById('registerBtn');
-const modal = document.getElementById('authModal');
-const closeModal = document.getElementById('closeModal');
-const modalTitle = document.getElementById('modalTitle');
-const submitBtn = document.getElementById('submitBtn');
-const nicknameField = document.getElementById('nicknameField');
-const errorMsg = document.getElementById('errorMsg');
-const successMsg = document.getElementById('successMsg');
-const authForm = document.getElementById('authForm');
-
-let isRegisterMode = false;
-
-function showError(message) {
-    errorMsg.textContent = message;
-    errorMsg.style.display = 'block';
-    successMsg.style.display = 'none';
+    const logoutBtn = document.getElementById('logoutBtn');
+    logoutBtn.addEventListener('click', () => {
+        sessionStorage.removeItem('currentUser');
+        window.location.reload();
+    });
 }
 
-function showSuccess(message) {
-    successMsg.textContent = message;
-    successMsg.style.display = 'block';
-    errorMsg.style.display = 'none';
+// Load and display events
+async function loadEvents() {
+    try {
+        const response = await fetch(`${API_URL}/events`);
+        const events = await response.json();
+        
+        if (response.ok) {
+            displayEvents(events);
+        } else {
+            eventsList.innerHTML = '<p style="color: var(--muted);">Failed to load events.</p>';
+        }
+    } catch (err) {
+        console.error(err);
+        eventsList.innerHTML = '<p style="color: var(--muted);">No events available.</p>';
+    }
 }
 
-function hideMessages() {
-    errorMsg.style.display = 'none';
-    successMsg.style.display = 'none';
+function displayEvents(events) {
+    if (events.length === 0) {
+        eventsList.innerHTML = '<p style="color: var(--muted);">No events scheduled yet.</p>';
+        return;
+    }
+    
+    eventsList.innerHTML = events.map(event => `
+        <div class="event">
+            <h3>${getEventIcon(event.title)} ${event.title}</h3>
+            <small>📅 ${formatDate(event.date)} ｜ 📍 ${event.location}</small>
+            ${event.description ? `<p style="color: var(--text); margin-top: 8px; font-size: 0.9rem;">${event.description}</p>` : ''}
+        </div>
+    `).join('');
 }
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}/${month}/${day}`;
+}
+
+function getEventIcon(title) {
+    const titleLower = title.toLowerCase();
+    if (titleLower.includes('音樂') || titleLower.includes('music')) return '🎉';
+    if (titleLower.includes('ai') || titleLower.includes('tech') || titleLower.includes('技術')) return '🤖';
+    if (titleLower.includes('運動') || titleLower.includes('sport')) return '⚽';
+    if (titleLower.includes('藝術') || titleLower.includes('art')) return '🎨';
+    return '📌';
+}
+
+// Load events on page load
+loadEvents();

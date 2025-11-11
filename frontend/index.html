@@ -11,23 +11,19 @@
   
   <header>
     <div class="logo">海大活動報名系統</div>
-    <div class="buttons">
+    <div class="buttons" id="headerButtons">
       <a href="signin.html"><button id="loginBtn">Sign In</button></a>
       <a href="register.html"><button class="ghost" id="registerBtn">Register</button></a>
     </div>
   </header>
 
   <main>
-    <h2>活動列表 (Events)</h2>
+    <div class="page-header">
+      <h2>活動列表 (Events)</h2>
+    </div>
+    
     <div id="eventsList">
-      <div class="event">
-        <h3>🎉 海大迎新音樂會</h3>
-        <small>📅 2025/10/25 ｜ 📍 海大大禮堂</small>
-      </div>
-      <div class="event">
-        <h3>🤖 AI 技術工作坊</h3>
-        <small>📅 2025/11/03 ｜ 📍 工程館301教室</small>
-      </div>
+      <!-- Events will be loaded dynamically -->
     </div>
   </main>
 
