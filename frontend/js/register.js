@@ -43,7 +43,7 @@ async function registerUser(nickname, emailOrPhone, password) {
         if (response.ok) {
             showSuccess('Registration successful! Redirecting to login...');
             setTimeout(() => {
-                window.location.href = 'index.html';
+                window.location.href = 'signin.html';
             }, 200);
         } else {
             showError(data.error || 'Registration failed');

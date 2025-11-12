@@ -26,7 +26,9 @@ async function signInUser(emailOrPhone, password) {
 
         const data = await response.json();
 
-        if (response.ok) {
+        if (response.ok && data.token) {
+            localStorage.setItem('authToken', data.token);
+            
             showSuccess('Sign in successful! Redirecting...');
             setTimeout(() => {
                 // redirect after successful sign in

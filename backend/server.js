@@ -1,8 +1,10 @@
 // backend/index.js
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const SALT_ROUNDS = 10;
+const SECRET_KEY = '9e7ae63e6d9e3654139277c630af4973';
 const { MongoClient } = require('mongodb');
 const app = express();
 const port = 5500;
@@ -57,6 +59,12 @@ app.post('/register', async (req, res) => {
     try {
         const { id, nickname, email_or_phone, password } = req.body;
 
+        // Check if email or phone already exists
+        const existingUser = await db.collection('users').findOne({ email: email_or_phone });
+        if (existingUser) {
+            return res.status(400).json({ error: 'Email already registered' });
+        }
+
         // Get next user ID
         if (!id || !nickname || !email_or_phone || !password) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -97,7 +105,14 @@ app.post('/signin', async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) return res.status(401).json({ error: 'Incorrect password' });
 
-        res.json({ message: 'Sign In successful', userId: user.id });
+        // Create JWT token (valid for 1 hour)
+        const token = jwt.sign(
+            { email: user.email, name: user.name, id: user.id, role: user.role },
+            SECRET_KEY,
+            { expiresIn: '1h' }
+        );
+
+        res.json({ message: 'Sign In successful', token});
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });

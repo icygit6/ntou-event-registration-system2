@@ -1,7 +1,19 @@
 const API_URL = 'http://localhost:5500';
 
 // Check if user is logged in
-const currentUser = sessionStorage.getItem('currentUser');
+const token = localStorage.getItem('authToken');
+let currentUser = null;
+
+if (token) {
+    const userData = parseJwt(token);
+    if (userData && userData.email) {
+        currentUser = userData;
+    } else {
+        // Invalid or expired token
+        localStorage.removeItem('authToken');
+    }
+}
+
 if (!currentUser) {
     window.location.href = 'signin.html';
 }
@@ -21,6 +33,19 @@ const logoutBtn = document.getElementById('logoutBtn');
 let editingEventId = null;
 
 // Utility Functions
+function parseJwt(token) {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+            '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+}
+
 function showError(msg) {
     errorMsg.textContent = msg;
     errorMsg.style.display = 'block';
@@ -224,7 +249,7 @@ eventForm.addEventListener('submit', async (e) => {
 });
 
 logoutBtn.addEventListener('click', () => {
-    sessionStorage.removeItem('currentUser');
+    localStorage.removeItem('currentUser');
     window.location.href = 'index.html';
 });
 

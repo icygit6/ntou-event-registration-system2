@@ -3,19 +3,45 @@ const API_URL = 'http://localhost:5500';
 const headerButtons = document.getElementById('headerButtons');
 const eventsList = document.getElementById('eventsList');
 
+function parseJwt(token) {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+            '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+}
+
 // Check if user is logged in
-const currentUser = sessionStorage.getItem('currentUser');
+const token = localStorage.getItem('authToken');
+let currentUser = null;
+
+if (token) {
+    const userData = parseJwt(token);
+    if (userData && userData.email) {
+        currentUser = userData;
+    } else {
+        // Invalid or expired token
+        localStorage.removeItem('authToken');
+    }
+}
 
 // Update header based on login status
 if (currentUser) {
     headerButtons.innerHTML = `
+        <span class='logo'>你好, `+ currentUser.name+`</span>
         <a href="events.html"><button>Manage Events</button></a>
         <button class="ghost" id="logoutBtn">Logout</button>
     `;
     
     const logoutBtn = document.getElementById('logoutBtn');
     logoutBtn.addEventListener('click', () => {
-        sessionStorage.removeItem('currentUser');
+        localStorage.removeItem('authToken');
+        alert('You have successfully logged out!');
         window.location.reload();
     });
 }
