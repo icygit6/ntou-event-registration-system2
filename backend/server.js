@@ -46,7 +46,14 @@ app.get('/nextId', async (req, res) => {
             { returnDocument: 'after', upsert: true }
         );
 
-        const nextId = result.value ? result.value.seq : 1; // handle first insert
+        let nextId;
+        if (result.value && typeof result.value.seq === 'number') {
+            nextId = result.value.seq;
+        } else {
+            const doc = await db.collection('counters').findOne({ _id: 'userId' });
+            nextId = doc.seq;
+        }
+
         res.json({ nextId });
     } catch (err) {
         console.error(err);
@@ -172,7 +179,14 @@ app.post('/events', verifyToken, async (req, res) => {
             { $inc: { seq: 1 } },
             { returnDocument: 'after', upsert: true }
         );
-        const eventId = counter.value ? counter.value.seq : 1;
+
+        let eventId;
+        if (counter.value && typeof counter.value.seq === 'number') {
+            eventId = counter.value.seq;
+        } else {
+            const doc = await db.collection('counters').findOne({ _id: 'eventId' });
+            eventId = doc.seq;
+        }
 
         const newEvent = {
             id: eventId,
@@ -198,7 +212,6 @@ app.put('/events/:id', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { title, date, location, description } = req.body;
-
         if (!title || !date || !location) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
@@ -210,14 +223,14 @@ app.put('/events/:id', verifyToken, async (req, res) => {
             description: description || '',
             updatedAt: new Date().toISOString()
         };
-
+        
         const result = await db.collection('events').findOneAndUpdate(
             { id: parseInt(id) },
             { $set: updateData },
             { returnDocument: 'after' }
         );
 
-        if (!result.value) return res.status(404).json({ error: 'Event not found' });
+        //if (!result.value) return res.status(404).json({ error: 'Event not found' });
         res.json({ message: 'Event updated successfully', ...result.value });
     } catch (err) {
         console.error(err);

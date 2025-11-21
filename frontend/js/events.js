@@ -78,8 +78,6 @@ function showForm(isEdit = false, eventData = null) {
         eventForm.reset();
         editingEventId = null;
     }
-    
-    eventFormContainer.scrollIntoView({ behavior: 'smooth' });
 }
 
 function hideForm() {
@@ -177,14 +175,16 @@ async function updateEvent(id, eventData) {
         });
         
         const data = await response.json();
-        
-        if (response.ok) {
-            showSuccess('Event updated successfully!');
-            hideForm();
-            loadEvents();
-        } else {
+
+        if(!response.ok){
             showError(data.error || 'Failed to update event');
+            return;
         }
+        
+        showSuccess('Event updated successfully!');
+        editingEventId = null;
+        hideForm();
+        loadEvents();
     } catch (err) {
         console.error(err);
         showError('Connection error. Make sure your server is running.');
@@ -198,14 +198,15 @@ async function editEvent(id) {
         const response = await fetch(`${API_URL}/events/${id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+
         const event = await response.json();
-        console.log('Event fetched:', event);
-        
-        if (response.ok) {
-            showForm(true, event);
-        } else {
+        if (!response.ok) {
             showError('Failed to load event details: ' + (event.error || 'Unknown error'));
+            return;
         }
+        
+        console.log('Event fetched:', event);
+        showForm(true, event);
     } catch (err) {
         console.error(err);
         showError('Connection error.');
@@ -272,3 +273,5 @@ logoutBtn.addEventListener('click', () => {
 
 // Load events on page load
 loadEvents();
+window.editEvent = editEvent;
+window.deleteEvent = deleteEvent;
