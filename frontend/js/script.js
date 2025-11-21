@@ -74,6 +74,9 @@ function displayEvents(events) {
             <h3>${getEventIcon(event.title)} ${event.title}</h3>
             <small>📅 ${formatDate(event.date)} ｜ 📍 ${event.location}</small>
             ${event.description ? `<p style="color: var(--text); margin-top: 8px; font-size: 0.9rem;">${event.description}</p>` : ''}
+            <div style="margin-top: 12px;">
+                ${currentUser ? `<button class="submit-btn" onclick="applyEvent(${event.id}, '${event.title}')">Apply</button>` : `<p style="color: var(--muted); font-size: 0.85rem;">Sign in to apply</p>`}
+            </div>
         </div>
     `).join('');
 }
@@ -97,3 +100,34 @@ function getEventIcon(title) {
 
 // Load events on page load
 loadEvents();
+
+// Apply for an event
+async function applyEvent(eventId, eventTitle) {
+    if (!currentUser) {
+        alert('Please sign in to apply for events');
+        window.location.href = 'signin.html';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/events/${eventId}/apply`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ userId: currentUser.id })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert(`Successfully applied for "${eventTitle}"!`);
+        } else {
+            alert(data.error || 'Failed to apply for event');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Connection error. Please try again.');
+    }
+}

@@ -118,3 +118,164 @@ app.post('/signin', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+// ---------- Middleware to verify JWT token ----------
+function verifyToken(req, res, next) {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+
+    try {
+        const decoded = jwt.verify(token, SECRET_KEY);
+        req.user = decoded;
+        next();
+    } catch (err) {
+        res.status(401).json({ error: 'Invalid or expired token' });
+    }
+}
+
+// ---------- Get all events ----------
+app.get('/events', async (req, res) => {
+    try {
+        const events = await db.collection('events').find({}).toArray();
+        res.json(events);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch events' });
+    }
+});
+
+// ---------- Get single event by ID ----------
+app.get('/events/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const event = await db.collection('events').findOne({ id: parseInt(id) });
+        if (!event) return res.status(404).json({ error: 'Event not found' });
+        res.json(event);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch event' });
+    }
+});
+
+// ---------- Create new event ----------
+app.post('/events', verifyToken, async (req, res) => {
+    try {
+        const { title, date, location, description } = req.body;
+
+        if (!title || !date || !location) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Get next event ID
+        const counter = await db.collection('counters').findOneAndUpdate(
+            { _id: 'eventId' },
+            { $inc: { seq: 1 } },
+            { returnDocument: 'after', upsert: true }
+        );
+        const eventId = counter.value ? counter.value.seq : 1;
+
+        const newEvent = {
+            id: eventId,
+            title,
+            date,
+            location,
+            description: description || '',
+            createdBy: req.user.id,
+            createdAt: new Date().toISOString()
+        };
+
+        const result = await db.collection('events').insertOne(newEvent);
+        console.log('Event created with id:', eventId);
+        res.json({ message: 'Event created successfully', id: eventId, ...newEvent });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to create event' });
+    }
+});
+
+// ---------- Update event ----------
+app.put('/events/:id', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title, date, location, description } = req.body;
+
+        if (!title || !date || !location) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const updateData = {
+            title,
+            date,
+            location,
+            description: description || '',
+            updatedAt: new Date().toISOString()
+        };
+
+        const result = await db.collection('events').findOneAndUpdate(
+            { id: parseInt(id) },
+            { $set: updateData },
+            { returnDocument: 'after' }
+        );
+
+        if (!result.value) return res.status(404).json({ error: 'Event not found' });
+        res.json({ message: 'Event updated successfully', ...result.value });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update event' });
+    }
+});
+
+// ---------- Delete event ----------
+app.delete('/events/:id', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await db.collection('events').deleteOne({ id: parseInt(id) });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+        res.json({ message: 'Event deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to delete event' });
+    }
+});
+
+// ---------- Apply for an event ----------
+app.post('/events/:id/apply', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+
+        // Check if event exists
+        const event = await db.collection('events').findOne({ id: parseInt(id) });
+        if (!event) return res.status(404).json({ error: 'Event not found' });
+
+        // Check if user already applied
+        const existingApplication = await db.collection('applications').findOne({
+            eventId: parseInt(id),
+            userId: userId
+        });
+
+        if (existingApplication) {
+            return res.status(400).json({ error: 'You have already applied for this event' });
+        }
+
+        // Create application record
+        const application = {
+            eventId: parseInt(id),
+            userId: userId,
+            userEmail: req.user.email,
+            userName: req.user.name,
+            appliedAt: new Date().toISOString(),
+            status: 'pending'
+        };
+
+        await db.collection('applications').insertOne(application);
+        console.log(`User ${userId} applied for event ${id}`);
+        res.json({ message: 'Application submitted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to apply for event' });
+    }
+});

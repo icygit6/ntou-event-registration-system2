@@ -67,11 +67,13 @@ function showForm(isEdit = false, eventData = null) {
     submitEventBtn.textContent = isEdit ? 'Update Event' : 'Save Event';
     
     if (eventData) {
+        console.log('showForm - loading event data with id:', eventData.id);
         document.getElementById('eventTitle').value = eventData.title;
         document.getElementById('eventDate').value = eventData.date;
         document.getElementById('eventLocation').value = eventData.location;
         document.getElementById('eventDescription').value = eventData.description || '';
         editingEventId = eventData.id;
+        console.log('editingEventId set to:', editingEventId);
     } else {
         eventForm.reset();
         editingEventId = null;
@@ -89,7 +91,9 @@ function hideForm() {
 // Fetch and Display Events
 async function loadEvents() {
     try {
-        const response = await fetch(`${API_URL}/events`);
+        const response = await fetch(`${API_URL}/events`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         const events = await response.json();
         
         if (response.ok) {
@@ -109,6 +113,7 @@ function displayEvents(events) {
         return;
     }
     
+    console.log('Displaying events:', events);
     eventsList.innerHTML = events.map(event => `
         <div class="event-card">
             <div class="event-content">
@@ -137,7 +142,10 @@ async function createEvent(eventData) {
     try {
         const response = await fetch(`${API_URL}/events`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify(eventData)
         });
         
@@ -161,7 +169,10 @@ async function updateEvent(id, eventData) {
     try {
         const response = await fetch(`${API_URL}/events/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify(eventData)
         });
         
@@ -183,13 +194,17 @@ async function updateEvent(id, eventData) {
 // Edit Event
 async function editEvent(id) {
     try {
-        const response = await fetch(`${API_URL}/events/${id}`);
+        console.log('Fetching event with id:', id);
+        const response = await fetch(`${API_URL}/events/${id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         const event = await response.json();
+        console.log('Event fetched:', event);
         
         if (response.ok) {
             showForm(true, event);
         } else {
-            showError('Failed to load event details');
+            showError('Failed to load event details: ' + (event.error || 'Unknown error'));
         }
     } catch (err) {
         console.error(err);
@@ -205,7 +220,8 @@ async function deleteEvent(id) {
     
     try {
         const response = await fetch(`${API_URL}/events/${id}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (response.ok) {
@@ -249,6 +265,7 @@ eventForm.addEventListener('submit', async (e) => {
 });
 
 logoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('authToken');
     localStorage.removeItem('currentUser');
     window.location.href = 'index.html';
 });
