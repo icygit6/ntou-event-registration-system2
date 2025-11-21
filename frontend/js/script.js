@@ -32,12 +32,12 @@ if (token) {
 
 // Update header based on login status
 if (currentUser) {
-    headerButtons.innerHTML = `
-        <span class='logo'>你好, `+ currentUser.name+`</span>
-        <a href="events.html"><button>Manage Events</button></a>
-        <button class="ghost" id="logoutBtn">Logout</button>
-    `;
-    
+    let htmlDesc = `<span class='logo'>你好, `+ currentUser.name+`</span>`;
+    if(currentUser.role == 'Advanced User')
+        htmlDesc += `<a href="events.html"><button>Manage Events</button></a>`;
+    htmlDesc += `<button class="ghost" id="logoutBtn">Logout</button>`;
+
+    headerButtons.innerHTML = htmlDesc;
     const logoutBtn = document.getElementById('logoutBtn');
     logoutBtn.addEventListener('click', () => {
         localStorage.removeItem('authToken');
@@ -74,9 +74,6 @@ function displayEvents(events) {
             <h3>${getEventIcon(event.title)} ${event.title}</h3>
             <small>📅 ${formatDate(event.date)} ｜ 📍 ${event.location}</small>
             ${event.description ? `<p style="color: var(--text); margin-top: 8px; font-size: 0.9rem;">${event.description}</p>` : ''}
-            <div style="margin-top: 12px;">
-                ${currentUser ? `<button class="submit-btn" onclick="applyEvent(${event.id}, '${event.title}')">Apply</button>` : `<p style="color: var(--muted); font-size: 0.85rem;">Sign in to apply</p>`}
-            </div>
         </div>
     `).join('');
 }
