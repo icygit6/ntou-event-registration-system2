@@ -2,6 +2,9 @@ const API_URL = 'http://localhost:5500';
 
 const headerButtons = document.getElementById('headerButtons');
 const eventsList = document.getElementById('eventsList');
+const searchInput = document.getElementById('searchInput');
+
+let allEvents = []; // Store all events for search filtering
 
 function parseJwt(token) {
     try {
@@ -53,6 +56,7 @@ async function loadEvents() {
         const events = await response.json();
         
         if (response.ok) {
+            allEvents = events; // Store all events
             displayEvents(events);
         } else {
             eventsList.innerHTML = '<p style="color: var(--muted);">Failed to load events.</p>';
@@ -63,6 +67,26 @@ async function loadEvents() {
     }
 }
 
+function searchEvents(query) {
+    if (!query.trim()) {
+        // If search is empty, display all events
+        displayEvents(allEvents);
+        return;
+    }
+    
+    // Filter events by title (case-insensitive)
+    const filteredEvents = allEvents.filter(event => 
+        event.title.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    displayEvents(filteredEvents);
+}
+
+function triggerSearch() {
+    const query = searchInput.value;
+    searchEvents(query);
+}
+
 function displayEvents(events) {
     if (events.length === 0) {
         eventsList.innerHTML = '<p style="color: var(--muted);">No events scheduled yet.</p>';
@@ -70,7 +94,8 @@ function displayEvents(events) {
     }
     
     eventsList.innerHTML = events.map(event => `
-        <div class="event">
+        <div class="event" style="cursor: pointer;" onclick="window.location.href='event.html?id=${event.id}'">
+            ${event.imageUrl ? `<img src="${event.imageUrl}" alt="${event.title}" style="max-width:220px; border-radius:6px; display:block; margin-bottom:8px;">` : ''}
             <h3>${getEventIcon(event.title)} ${event.title}</h3>
             <small>📅 ${formatDate(event.date)} ｜ 📍 ${event.location}</small>
             ${event.description ? `<p style="color: var(--text); margin-top: 8px; font-size: 0.9rem;">${event.description}</p>` : ''}
@@ -97,6 +122,13 @@ function getEventIcon(title) {
 
 // Load events on page load
 loadEvents();
+
+// Search functionality
+if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+        searchEvents(e.target.value);
+    });
+}
 
 // Apply for an event
 async function applyEvent(eventId, eventTitle) {

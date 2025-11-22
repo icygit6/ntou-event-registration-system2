@@ -11,6 +11,10 @@
   
   <header>
     <div class="logo">海大活動報名系統</div>
+    <div class="search-section" style="flex: 1; text-align: center; margin: 0 20px; display: flex; justify-content: center; gap: 8px; align-items: center;">
+      <input type="text" id="searchInput" placeholder="Search events by title..." style="padding: 10px 15px; font-size: 14px; border: 1px solid var(--border-color); border-radius: 4px; width: 280px;">
+      <button id="searchBtn" style="background: var(--accent); border: none; color: white; padding: 10px 20px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-weight: 500;" onclick="triggerSearch()">Search</button>
+    </div>
     <div class="buttons" id="headerButtons">
       <a href="signin.html"><button id="loginBtn">Sign In</button></a>
       <a href="register.html"><button class="ghost" id="registerBtn">Register</button></a>

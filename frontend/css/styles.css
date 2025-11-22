@@ -273,3 +273,26 @@ h2 {
 .delete-btn:hover {
     opacity: 0.85;
 }
+
+/* ---------- Date Input Styling ---------- */
+input[type="date"] {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+input[type="date"]::-webkit-outer-spin-button,
+input[type="date"]::-webkit-inner-spin-button {
+    display: none;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    color: var(--accent);
+    filter: invert(1);
+}
+
+input[type="date"]:hover {
+    border-color: var(--accent);
+}

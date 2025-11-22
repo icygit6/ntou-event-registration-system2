@@ -11,6 +11,10 @@
   
   <header>
     <div class="logo">海大活動報名系統</div>
+    <div class="search-section" style="flex: 1; text-align: center; margin: 0 20px; display: flex; justify-content: center; gap: 8px; align-items: center;">
+      <input type="text" id="searchInput" placeholder="Search events by title..." style="padding: 10px 15px; font-size: 14px; border: 1px solid var(--border-color); border-radius: 4px; width: 280px;">
+      <button id="searchBtn" style="background: var(--accent); border: none; color: white; padding: 10px 20px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-weight: 500;" onclick="triggerSearch()">Search</button>
+    </div>
     <div class="buttons">
       <a href="index.html"><button class="ghost">Back to Home</button></a>
       <button id="logoutBtn" class="ghost">Logout</button>
@@ -35,13 +39,21 @@
           <input type="text" id="eventTitle" required>
           
           <label>Event Date:</label>
-          <input type="date" id="eventDate" required>
+          <div style="position: relative;">
+            <input type="date" id="eventDate" required style="width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: var(--text); box-sizing: border-box; font-family: inherit; cursor: pointer;">
+          </div>
           
           <label>Location:</label>
           <input type="text" id="eventLocation" required>
           
           <label>Description (Optional):</label>
           <textarea id="eventDescription" rows="4"></textarea>
+
+          <label>Image (Optional):</label>
+          <input type="file" id="eventImage" accept="image/*">
+          <div style="margin-top:8px;">
+            <img id="eventImagePreview" src="" alt="" style="max-width:200px; display:none; border-radius:6px;" />
+          </div>
           
           <div class="button-group">
             <button type="submit" class="submit-btn" id="submitEventBtn">Save Event</button>

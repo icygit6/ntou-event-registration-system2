@@ -230,8 +230,12 @@ app.put('/events/:id', verifyToken, async (req, res) => {
             { returnDocument: 'after' }
         );
 
-        //if (!result.value) return res.status(404).json({ error: 'Event not found' });
-        res.json({ message: 'Event updated successfully', ...result.value });
+        if (!result.value) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+
+        // Return the updated document under an `event` key instead of spreading
+        res.json({ message: 'Event updated successfully', event: result.value });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to update event' });

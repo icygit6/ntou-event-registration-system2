@@ -9,7 +9,6 @@ if (token) {
     if (userData && userData.email) {
         currentUser = userData;
     } else {
-        // Invalid or expired token
         localStorage.removeItem('authToken');
     }
 }
@@ -29,8 +28,12 @@ const eventsList = document.getElementById('eventsList');
 const errorMsg = document.getElementById('errorMsg');
 const successMsg = document.getElementById('successMsg');
 const logoutBtn = document.getElementById('logoutBtn');
+const eventImageInput = document.getElementById('eventImage');
+const eventImagePreview = document.getElementById('eventImagePreview');
+const searchInput = document.getElementById('searchInput');
 
 let editingEventId = null;
+let allEvents = []; // Store all events for search filtering
 
 // Utility Functions
 function parseJwt(token) {
@@ -44,6 +47,15 @@ function parseJwt(token) {
     } catch (e) {
         return null;
     }
+}
+
+function handleTokenError() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('currentUser');
+    showError('Your session has expired. Please sign in again.');
+    setTimeout(() => {
+        window.location.href = 'signin.html';
+    }, 2000);
 }
 
 function showError(msg) {
@@ -60,6 +72,24 @@ function showSuccess(msg) {
     setTimeout(() => successMsg.style.display = 'none', 3000);
 }
 
+// Image preview
+if (eventImageInput) {
+    eventImageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                eventImagePreview.src = e.target.result;
+                eventImagePreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            eventImagePreview.src = '';
+            eventImagePreview.style.display = 'none';
+        }
+    });
+}
+
 // Show/Hide Form
 function showForm(isEdit = false, eventData = null) {
     eventFormContainer.style.display = 'block';
@@ -72,10 +102,23 @@ function showForm(isEdit = false, eventData = null) {
         document.getElementById('eventDate').value = eventData.date;
         document.getElementById('eventLocation').value = eventData.location;
         document.getElementById('eventDescription').value = eventData.description || '';
+        
+        // Handle existing image
+        if (eventData.imageUrl) {
+            eventImagePreview.src = eventData.imageUrl;
+            eventImagePreview.style.display = 'block';
+        } else {
+            eventImagePreview.src = '';
+            eventImagePreview.style.display = 'none';
+        }
+        
+        if (eventImageInput) eventImageInput.value = '';
         editingEventId = eventData.id;
         console.log('editingEventId set to:', editingEventId);
     } else {
         eventForm.reset();
+        eventImagePreview.src = '';
+        eventImagePreview.style.display = 'none';
         editingEventId = null;
     }
 }
@@ -83,6 +126,8 @@ function showForm(isEdit = false, eventData = null) {
 function hideForm() {
     eventFormContainer.style.display = 'none';
     eventForm.reset();
+    eventImagePreview.src = '';
+    eventImagePreview.style.display = 'none';
     editingEventId = null;
 }
 
@@ -95,14 +140,37 @@ async function loadEvents() {
         const events = await response.json();
         
         if (response.ok) {
+            allEvents = events; // Store all events for search
             displayEvents(events);
+        } else if (response.status === 401) {
+            handleTokenError();
         } else {
-            showError('Failed to load events');
+            showError(events.error || 'Failed to load events');
         }
     } catch (err) {
         console.error(err);
         showError('Connection error. Make sure your server is running.');
     }
+}
+
+function searchEvents(query) {
+    if (!query.trim()) {
+        // If search is empty, display all events
+        displayEvents(allEvents);
+        return;
+    }
+    
+    // Filter events by title (case-insensitive)
+    const filteredEvents = allEvents.filter(event => 
+        event.title.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    displayEvents(filteredEvents);
+}
+
+function triggerSearch() {
+    const query = searchInput.value;
+    searchEvents(query);
 }
 
 function displayEvents(events) {
@@ -114,6 +182,7 @@ function displayEvents(events) {
     console.log('Displaying events:', events);
     eventsList.innerHTML = events.map(event => `
         <div class="event-card">
+            ${event.imageUrl ? `<img src="${event.imageUrl}" alt="${event.title}" class="event-card-image" style="max-width:200px; border-radius:6px; margin-bottom:8px;">` : ''}
             <div class="event-content">
                 <h3>${event.title}</h3>
                 <div class="event-details">
@@ -138,23 +207,57 @@ function formatDate(dateString) {
 // Create Event
 async function createEvent(eventData) {
     try {
-        const response = await fetch(`${API_URL}/events`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(eventData)
-        });
+        // Check if there's an image file
+        const hasImage = eventImageInput && eventImageInput.files && eventImageInput.files[0];
         
-        const data = await response.json();
-        
-        if (response.ok) {
-            showSuccess('Event created successfully!');
-            hideForm();
-            loadEvents();
+        if (hasImage) {
+            // Use FormData for multipart/form-data
+            const formData = new FormData();
+            formData.append('title', eventData.title);
+            formData.append('date', eventData.date);
+            formData.append('location', eventData.location);
+            formData.append('description', eventData.description || '');
+            formData.append('image', eventImageInput.files[0]);
+
+            const response = await fetch(`${API_URL}/events`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                showSuccess('Event created successfully!');
+                hideForm();
+                loadEvents();
+            } else if (response.status === 401) {
+                handleTokenError();
+            } else {
+                showError(data.error || 'Failed to create event');
+            }
         } else {
-            showError(data.error || 'Failed to create event');
+            // Use JSON for simple data without image
+            const response = await fetch(`${API_URL}/events`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(eventData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showSuccess('Event created successfully!');
+                hideForm();
+                loadEvents();
+            } else if (response.status === 401) {
+                handleTokenError();
+            } else {
+                showError(data.error || 'Failed to create event');
+            }
         }
     } catch (err) {
         console.error(err);
@@ -165,28 +268,93 @@ async function createEvent(eventData) {
 // Update Event
 async function updateEvent(id, eventData) {
     try {
-        const response = await fetch(`${API_URL}/events/${id}`, {
-            method: 'PUT',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(eventData)
-        });
+        console.log('Updating event with id:', id, 'Data:', eventData);
         
-        const data = await response.json();
+        // Check if there's a new image file
+        const hasNewImage = eventImageInput && eventImageInput.files && eventImageInput.files[0];
+        
+        if (hasNewImage) {
+            // Use FormData for multipart/form-data with new image
+            const formData = new FormData();
+            formData.append('title', eventData.title);
+            formData.append('date', eventData.date);
+            formData.append('location', eventData.location);
+            formData.append('description', eventData.description || '');
+            formData.append('image', eventImageInput.files[0]);
 
-        if(!response.ok){
-            showError(data.error || 'Failed to update event');
-            return;
+            console.log('Updating with new image');
+            const response = await fetch(`${API_URL}/events/${id}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    handleTokenError();
+                } else {
+                    showError(data.error || 'Failed to update event');
+                }
+                return;
+            }
+
+            showSuccess('Event updated successfully!');
+            hideForm();
+            loadEvents();
+        } else {
+            // Use JSON for simple data without new image
+            // First, get the current event to preserve the existing image
+            const currentEventResponse = await fetch(`${API_URL}/events/${id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!currentEventResponse.ok) {
+                if (currentEventResponse.status === 401) {
+                    handleTokenError();
+                } else {
+                    showError('Failed to get current event data');
+                }
+                return;
+            }
+            
+            const currentEvent = await currentEventResponse.json();
+            
+            // Include the existing imageUrl in the update
+            const updateData = {
+                ...eventData,
+                imageUrl: currentEvent.imageUrl // Preserve existing image
+            };
+            
+            console.log('Updating without new image, preserving existing:', currentEvent.imageUrl);
+            
+            const response = await fetch(`${API_URL}/events/${id}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(updateData)
+            });
+            
+            const data = await response.json();
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    handleTokenError();
+                } else {
+                    showError(data.error || 'Failed to update event');
+                }
+                return;
+            }
+            
+            showSuccess('Event updated successfully!');
+            hideForm();
+            loadEvents();
         }
-        
-        showSuccess('Event updated successfully!');
-        editingEventId = null;
-        hideForm();
-        loadEvents();
     } catch (err) {
-        console.error(err);
+        console.error('Update error:', err);
         showError('Connection error. Make sure your server is running.');
     }
 }
@@ -201,7 +369,11 @@ async function editEvent(id) {
 
         const event = await response.json();
         if (!response.ok) {
-            showError('Failed to load event details: ' + (event.error || 'Unknown error'));
+            if (response.status === 401) {
+                handleTokenError();
+            } else {
+                showError('Failed to load event details: ' + (event.error || 'Unknown error'));
+            }
             return;
         }
         
@@ -228,6 +400,8 @@ async function deleteEvent(id) {
         if (response.ok) {
             showSuccess('Event deleted successfully!');
             loadEvents();
+        } else if (response.status === 401) {
+            handleTokenError();
         } else {
             showError('Failed to delete event');
         }
@@ -241,6 +415,13 @@ async function deleteEvent(id) {
 addEventBtn.addEventListener('click', () => showForm());
 
 cancelBtn.addEventListener('click', hideForm);
+
+// Search functionality
+if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+        searchEvents(e.target.value);
+    });
+}
 
 eventForm.addEventListener('submit', async (e) => {
     e.preventDefault();
