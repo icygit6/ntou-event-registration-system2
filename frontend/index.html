@@ -6,6 +6,7 @@
   <title>海大活動報名系統</title>
   <link rel="stylesheet" href="css/styles.css">
   <script src="js/script.js" defer></script>
+  <script src="js/modal-auth.js" defer></script>
 </head>
 <body>
   
@@ -13,11 +14,11 @@
     <div class="logo">海大活動報名系統</div>
     <div class="search-section" style="flex: 1; text-align: center; margin: 0 20px; display: flex; justify-content: center; gap: 8px; align-items: center;">
       <input type="text" id="searchInput" placeholder="Search events by title..." style="padding: 10px 15px; font-size: 14px; border: 1px solid var(--border-color); border-radius: 4px; width: 280px;">
-      <button id="searchBtn" style="background: var(--accent); border: none; color: white; padding: 10px 20px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-weight: 500;" onclick="triggerSearch()">Search</button>
+      <button id="searchBtn" style="background: var(--accent); border: none; color: white; padding: 10px 20px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-weight: 500;">Search</button>
     </div>
     <div class="buttons" id="headerButtons">
-      <a href="signin.html"><button id="loginBtn">Sign In</button></a>
-      <a href="register.html"><button class="ghost" id="registerBtn">Register</button></a>
+      <button id="loginBtn">Sign In</button>
+      <button class="ghost" id="registerBtn">Register</button>
     </div>
   </header>
 
@@ -30,6 +31,80 @@
       <!-- Events will be loaded dynamically -->
     </div>
   </main>
+
+  <!-- Sign In Modal -->
+  <div id="signInModal" class="modal-overlay">
+    <div class="modal">
+      <div class="form-content">
+        <span class="close-btn">&times;</span>
+        <h3>Sign In</h3>
+
+        <div class="error-msg" id="signInErrorMsg"></div>
+        <div class="success-msg" id="signInSuccessMsg"></div>
+        
+        <form id="signInForm">
+          <label>Email:</label>
+          <input type="text" id="signInEmail" required>
+          <label>Password:</label>
+          <input type="password" id="signInPassword" required>
+          <button type="submit" class="submit-btn">Sign In</button>
+        </form>
+        <p class="alt-link">Don't have an account? <a href="#" id="showRegisterLink">Register</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Register Modal -->
+  <div id="registerModal" class="modal-overlay">
+    <div class="modal">
+      <div class="form-content">
+        <span class="close-btn">&times;</span>
+        <h3>Register</h3>
+
+        <div class="error-msg" id="registerErrorMsg"></div>
+        <div class="success-msg" id="registerSuccessMsg"></div>
+
+        <form id="registerForm">
+          <div id="nicknameField">
+            <label>Nickname:</label>
+            <input type="text" id="registerNickname" required>
+          </div>
+          <label>Email:</label>
+          <input type="text" id="registerEmail" required>
+          <label>Password:</label>
+          <input type="password" id="registerPassword" required>
+          <button type="submit" class="submit-btn">Register</button>
+        </form>
+      </div>
+    </div>
+  </div>
+<script>
+// Debug script
+console.log('=== DEBUG INFO ===');
+console.log('Login button:', document.getElementById('loginBtn'));
+console.log('Register button:', document.getElementById('registerBtn'));
+console.log('SignIn modal:', document.getElementById('signInModal'));
+console.log('Register modal:', document.getElementById('registerModal'));
+
+// Test if buttons work
+document.getElementById('loginBtn')?.addEventListener('click', function() {
+    console.log('Login button clicked!');
+    document.getElementById('signInModal').style.display = 'block';
+});
+
+document.getElementById('registerBtn')?.addEventListener('click', function() {
+    console.log('Register button clicked!');
+    document.getElementById('registerModal').style.display = 'block';
+});
+
+// Test if modals can be displayed manually
+window.showSignInModal = function() {
+    document.getElementById('signInModal').style.display = 'block';
+}
+window.showRegisterModal = function() {
+    document.getElementById('registerModal').style.display = 'block';
+}
+</script>
 
 </body>
 </html>
