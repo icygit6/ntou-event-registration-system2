@@ -1,0 +1,161 @@
+{
+  "_type": "UMLModel",
+  "name": "EventSystemModel",
+  "ownedElements": [
+    {
+      "_type": "UMLPackage",
+      "name": "Controller Layer",
+      "ownedElements": [
+        {
+          "_type": "UMLClass",
+          "name": "AuthController",
+          "stereotype": "Controller",
+          "operations": [
+            { "name": "login(email, password)" },
+            { "name": "register(data)" },
+            { "name": "logout()" }
+          ]
+        },
+        {
+          "_type": "UMLClass",
+          "name": "EventController",
+          "stereotype": "Controller",
+          "operations": [
+            { "name": "createEvent(data)" },
+            { "name": "editEvent(id, data)" },
+            { "name": "deleteEvent(id)" },
+            { "name": "viewEvent(id)" },
+            { "name": "listEvents()" }
+          ]
+        },
+        {
+          "_type": "UMLClass",
+          "name": "RegistrationController",
+          "stereotype": "Controller",
+          "operations": [
+            { "name": "registerForEvent(eventId, participantId)" },
+            { "name": "cancelRegistration(eventId, participantId)" },
+            { "name": "listParticipants(eventId)" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "_type": "UMLPackage",
+      "name": "Service Layer",
+      "ownedElements": [
+        {
+          "_type": "UMLClass",
+          "name": "AuthService",
+          "stereotype": "Service",
+          "operations": [
+            { "name": "validateUser(email, password)" },
+            { "name": "createUser(data)" },
+            { "name": "generateJWT(user)" }
+          ]
+        },
+        {
+          "_type": "UMLClass",
+          "name": "EventService",
+          "stereotype": "Service",
+          "operations": [
+            { "name": "create(data)" },
+            { "name": "update(id, data)" },
+            { "name": "delete(id)" },
+            { "name": "get(id)" },
+            { "name": "list()" }
+          ]
+        },
+        {
+          "_type": "UMLClass",
+          "name": "RegistrationService",
+          "stereotype": "Service",
+          "operations": [
+            { "name": "register(eventId, participantId)" },
+            { "name": "cancel(eventId, participantId)" },
+            { "name": "list(eventId)" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "_type": "UMLPackage",
+      "name": "Repository Layer",
+      "ownedElements": [
+        {
+          "_type": "UMLClass",
+          "name": "UserRepository",
+          "stereotype": "Repository",
+          "operations": [
+            { "name": "findByEmail(email)" },
+            { "name": "insert(user)" },
+            { "name": "verifyPassword(hash, input)" }
+          ]
+        },
+        {
+          "_type": "UMLClass",
+          "name": "EventRepository",
+          "stereotype": "Repository",
+          "operations": [
+            { "name": "insert(event)" },
+            { "name": "update(event)" },
+            { "name": "delete(eventId)" },
+            { "name": "findById(eventId)" },
+            { "name": "findAll()" }
+          ]
+        },
+        {
+          "_type": "UMLClass",
+          "name": "RegistrationRepository",
+          "stereotype": "Repository",
+          "operations": [
+            { "name": "insert(reg)" },
+            { "name": "delete(eventId, participantId)" },
+            { "name": "findParticipants(eventId)" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "_type": "UMLPackage",
+      "name": "Entity Layer",
+      "ownedElements": [
+        {
+          "_type": "UMLClass",
+          "name": "User",
+          "attributes": [
+            { "name": "userId : String" },
+            { "name": "email : String" },
+            { "name": "passwordHash : String" },
+            { "name": "name : String" }
+          ]
+        },
+        {
+          "_type": "UMLClass",
+          "name": "Event",
+          "attributes": [
+            { "name": "eventId : String" },
+            { "name": "title : String" },
+            { "name": "description : String" },
+            { "name": "date : Date" },
+            { "name": "location : String" },
+            { "name": "organizerId : String" }
+          ]
+        },
+        {
+          "_type": "UMLClass",
+          "name": "Registration",
+          "attributes": [
+            { "name": "registrationId : String" },
+            { "name": "eventId : String" },
+            { "name": "participantId : String" },
+            { "name": "timestamp : Date" }
+          ]
+        }
+      ]
+    }
+  ]
+}
