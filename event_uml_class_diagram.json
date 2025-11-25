@@ -1,0 +1,162 @@
+{
+  "_type": "staruml-json",
+  "_version": "1.0.0",
+  "ownedElements": [
+    {
+      "_type": "UMLModel",
+      "name": "EventSystem",
+      "ownedElements": [
+        {
+          "_type": "UMLPackage",
+          "name": "Frontend",
+          "ownedElements": [
+            {
+              "_type": "UMLClass",
+              "name": "RegisterForm",
+              "attributes": [
+                {"name": "API_URL"}, {"name": "regiForm"}, {"name": "submitBtn"}, {"name": "errorMsg"}, {"name": "successMsg"}
+              ],
+              "operations": [
+                {"name": "fetchNextId()"}, {"name": "registerUser()"}, {"name": "showError()"}, {"name": "showSuccess()"}
+              ]
+            },
+            {
+              "_type": "UMLClass",
+              "name": "SignInForm",
+              "attributes": [
+                {"name": "API_URL"}, {"name": "signForm"}, {"name": "submitBtn"}, {"name": "errorMsg"}, {"name": "successMsg"}
+              ],
+              "operations": [
+                {"name": "signInUser()"}, {"name": "showError()"}, {"name": "showSuccess()"}
+              ]
+            },
+            {
+              "_type": "UMLClass",
+              "name": "EventManager",
+              "attributes": [
+                {"name": "API_URL"}, {"name": "token"}, {"name": "currentUser"}, {"name": "eventsList"}, {"name": "editingEventId"}, {"name": "eventFormContainer"}
+              ],
+              "operations": [
+                {"name": "loadEvents()"}, {"name": "displayEvents()"}, {"name": "createEvent()"}, {"name": "updateEvent()"}, {"name": "editEvent()"}, {"name": "deleteEvent()"}, {"name": "applyEvent()"}, {"name": "parseJwt()"}
+              ]
+            },
+            {
+              "_type": "UMLClass",
+              "name": "HeaderManager",
+              "attributes": [
+                {"name": "headerButtons"}, {"name": "currentUser"}
+              ],
+              "operations": [
+                {"name": "updateHeader()"}, {"name": "logout()"}
+              ]
+            }
+          ]
+        },
+        {
+          "_type": "UMLPackage",
+          "name": "Backend",
+          "ownedElements": [
+            {
+              "_type": "UMLClass",
+              "name": "User",
+              "attributes": [
+                {"name": "id"}, {"name": "name"}, {"name": "email"}, {"name": "password_hash"}, {"name": "role"}, {"name": "created_at"}
+              ],
+              "operations": [
+                {"name": "register()"}, {"name": "signin()"}
+              ]
+            },
+            {
+              "_type": "UMLClass",
+              "name": "Event",
+              "attributes": [
+                {"name": "id"}, {"name": "title"}, {"name": "date"}, {"name": "location"}, {"name": "description"}, {"name": "createdBy"}, {"name": "createdAt"}, {"name": "updatedAt"}
+              ],
+              "operations": [
+                {"name": "createEvent()"}, {"name": "updateEvent()"}, {"name": "deleteEvent()"}, {"name": "getEvent()"}, {"name": "getAllEvents()"}
+              ]
+            },
+            {
+              "_type": "UMLClass",
+              "name": "Application",
+              "attributes": [
+                {"name": "eventId"}, {"name": "userId"}, {"name": "userEmail"}, {"name": "userName"}, {"name": "appliedAt"}, {"name": "status"}
+              ],
+              "operations": [
+                {"name": "applyEvent()"}
+              ]
+            },
+            {
+              "_type": "UMLClass",
+              "name": "Counter",
+              "attributes": [
+                {"name": "_id"}, {"name": "seq"}
+              ],
+              "operations": [
+                {"name": "getNextId()"}
+              ]
+            }
+          ]
+        },
+        {
+          "_type": "UMLPackage",
+          "name": "HTMLPages",
+          "ownedElements": [
+            {"_type": "UMLClass", "name": "IndexHTML"},
+            {"_type": "UMLClass", "name": "RegisterHTML"},
+            {"_type": "UMLClass", "name": "SignInHTML"},
+            {"_type": "UMLClass", "name": "EventsHTML"}
+          ]
+        },
+        {
+          "_type": "UMLAssociation",
+          "name": "RegisterForm-RegisterHTML",
+          "end1": {"reference": "RegisterForm", "aggregation": "composite"},
+          "end2": {"reference": "RegisterHTML"}
+        },
+        {
+          "_type": "UMLAssociation",
+          "name": "SignInForm-SignInHTML",
+          "end1": {"reference": "SignInForm", "aggregation": "composite"},
+          "end2": {"reference": "SignInHTML"}
+        },
+        {
+          "_type": "UMLAssociation",
+          "name": "EventManager-EventsHTML",
+          "end1": {"reference": "EventManager", "aggregation": "composite"},
+          "end2": {"reference": "EventsHTML"}
+        },
+        {
+          "_type": "UMLDependency",
+          "name": "RegisterForm->User",
+          "client": {"reference": "RegisterForm"},
+          "supplier": {"reference": "User"}
+        },
+        {
+          "_type": "UMLDependency",
+          "name": "SignInForm->User",
+          "client": {"reference": "SignInForm"},
+          "supplier": {"reference": "User"}
+        },
+        {
+          "_type": "UMLDependency",
+          "name": "EventManager->Event",
+          "client": {"reference": "EventManager"},
+          "supplier": {"reference": "Event"}
+        },
+        {
+          "_type": "UMLDependency",
+          "name": "EventManager->Application",
+          "client": {"reference": "EventManager"},
+          "supplier": {"reference": "Application"}
+        },
+        {
+          "_type": "UMLDependency",
+          "name": "EventManager->Counter",
+          "client": {"reference": "EventManager"},
+          "supplier": {"reference": "Counter"}
+        }
+      ]
+    }
+  ]
+}

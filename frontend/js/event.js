@@ -67,7 +67,7 @@ function renderEvent(event) {
             <p><strong>📅</strong> ${new Date(event.date).toLocaleDateString()} &nbsp; <strong>📍</strong> ${event.location}</p>
             ${event.description ? `<p style="margin-top:8px;">${event.description}</p>` : ''}
             <div style="margin-top:16px;">
-                ${currentUser ? `<button id="applyBtn" class="submit-btn">Apply</button>` : `<a href="signin.html"><button class="ghost">Sign in to apply</button></a>`}
+                ${currentUser ? `<button id="applyBtn" class="submit-btn">Apply</button>` : `<a href="signin.html"><button class="submit-btn">Sign in to apply</button></a>`}
             </div>
         </div>
     `;
