@@ -3,9 +3,11 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const upload = require("./upload");
+const { MongoClient } = require('mongodb');
+
 const SALT_ROUNDS = 10;
 const SECRET_KEY = '9e7ae63e6d9e3654139277c630af4973';
-const { MongoClient } = require('mongodb');
 const app = express();
 const port = 5500;
 
@@ -165,7 +167,7 @@ app.get('/events/:id', async (req, res) => {
 });
 
 // ---------- Create new event ----------
-app.post('/events', verifyToken, async (req, res) => {
+app.post('/events', verifyToken, upload.single('image'), async (req, res) => {
     try {
         const { title, date, location, description } = req.body;
 
@@ -180,13 +182,7 @@ app.post('/events', verifyToken, async (req, res) => {
             { returnDocument: 'after', upsert: true }
         );
 
-        let eventId;
-        if (counter.value && typeof counter.value.seq === 'number') {
-            eventId = counter.value.seq;
-        } else {
-            const doc = await db.collection('counters').findOne({ _id: 'eventId' });
-            eventId = doc.seq;
-        }
+        const eventId = counter.value?.seq || (await db.collection('counters').findOne({ _id: 'eventId' })).seq;
 
         const newEvent = {
             id: eventId,
@@ -194,6 +190,7 @@ app.post('/events', verifyToken, async (req, res) => {
             date,
             location,
             description: description || '',
+            imagePath: req.file ? req.file.path : null,
             createdBy: req.user.id,
             createdAt: new Date().toISOString()
         };
@@ -208,10 +205,10 @@ app.post('/events', verifyToken, async (req, res) => {
 });
 
 // ---------- Update event ----------
-app.put('/events/:id', verifyToken, async (req, res) => {
+app.put('/events/:id', verifyToken, upload.single('image'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, date, location, description } = req.body;
+        const { title, date, location, description, removeImage } = req.body;
         if (!title || !date || !location) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
@@ -223,16 +220,17 @@ app.put('/events/:id', verifyToken, async (req, res) => {
             description: description || '',
             updatedAt: new Date().toISOString()
         };
+        if (req.file) {
+            updateData.imagePath = req.file.path;
+        } else if (removeImage === 'true') {
+            updateData.imagePath = null;
+        }
         
         const result = await db.collection('events').findOneAndUpdate(
             { id: parseInt(id) },
             { $set: updateData },
             { returnDocument: 'after' }
         );
-
-        if (!result.value) {
-            return res.status(404).json({ error: 'Event not found' });
-        }
 
         // Return the updated document under an `event` key instead of spreading
         res.json({ message: 'Event updated successfully', event: result.value });
@@ -258,6 +256,25 @@ app.delete('/events/:id', verifyToken, async (req, res) => {
     }
 });
 
+// Check if current user has applied for an event
+app.get('/events/:id/applied', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+
+        const application = await db.collection('applications').findOne({
+            eventId: parseInt(id),
+            userId: userId,
+            status: 1
+        });
+
+        res.json({ applied: !!application });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to check application' });
+    }
+});
+
 // ---------- Apply for an event ----------
 app.post('/events/:id/apply', verifyToken, async (req, res) => {
     try {
@@ -268,16 +285,6 @@ app.post('/events/:id/apply', verifyToken, async (req, res) => {
         const event = await db.collection('events').findOne({ id: parseInt(id) });
         if (!event) return res.status(404).json({ error: 'Event not found' });
 
-        // Check if user already applied
-        const existingApplication = await db.collection('applications').findOne({
-            eventId: parseInt(id),
-            userId: userId
-        });
-
-        if (existingApplication) {
-            return res.status(400).json({ error: 'You have already applied for this event' });
-        }
-
         // Create application record
         const application = {
             eventId: parseInt(id),
@@ -285,7 +292,7 @@ app.post('/events/:id/apply', verifyToken, async (req, res) => {
             userEmail: req.user.email,
             userName: req.user.name,
             appliedAt: new Date().toISOString(),
-            status: 'pending'
+            status: 1
         };
 
         await db.collection('applications').insertOne(application);
@@ -294,5 +301,28 @@ app.post('/events/:id/apply', verifyToken, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to apply for event' });
+    }
+});
+
+// ---------- Retract application ----------
+app.patch('/events/:id/apply', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body; // expected to be 0
+        const userId = req.user.id;
+
+        const result = await db.collection('applications').updateOne(
+            { eventId: parseInt(id), userId: userId, status: { $ne: 0 } },
+            { $set: { status: status } }
+        );
+
+        if (result.modifiedCount === 0) {
+            return res.status(404).json({ error: 'Application not found or already retracted' });
+        }
+
+        res.json({ message: 'Application retracted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to retract application' });
     }
 });

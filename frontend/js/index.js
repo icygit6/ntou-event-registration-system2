@@ -37,7 +37,7 @@ if (token) {
 if (currentUser) {
     let htmlDesc = `<span class='logo'>你好, `+ currentUser.name+`</span>`;
     if(currentUser.role == 'Advanced User')
-        htmlDesc += `<a href="events.html"><button>Manage Events</button></a>`;
+        htmlDesc += `<a href="manage_events.html"><button>Manage Events</button></a>`;
     htmlDesc += `<button class="ghost" id="logoutBtn">Logout</button>`;
 
     headerButtons.innerHTML = htmlDesc;
@@ -95,8 +95,8 @@ function displayEvents(events) {
     
     eventsList.innerHTML = events.map(event => `
         <div class="event" style="cursor: pointer;" onclick="window.location.href='event.html?id=${event.id}'">
-            ${event.imageUrl ? `<img src="${event.imageUrl}" alt="${event.title}" style="max-width:220px; border-radius:6px; display:block; margin-bottom:8px;">` : ''}
             <h3>${getEventIcon(event.title)} ${event.title}</h3>
+            ${event.imagePath ? `<img src="${event.imagePath}" alt="${event.title}" style="max-width:220px; border-radius:6px; display:block; margin-bottom:8px;">` : ''}
             <small>📅 ${formatDate(event.date)} ｜ 📍 ${event.location}</small>
             ${event.description ? `<p style="color: var(--text); margin-top: 8px; font-size: 0.9rem;">${event.description}</p>` : ''}
         </div>
@@ -128,6 +128,11 @@ if (searchInput) {
     searchInput.addEventListener('input', (e) => {
         searchEvents(e.target.value);
     });
+}
+
+function clearSearch() {
+    document.getElementById('searchInput').value = "";
+    triggerSearch(); // Reload full list after clearing
 }
 
 // Apply for an event

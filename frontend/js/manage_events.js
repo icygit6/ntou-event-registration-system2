@@ -31,6 +31,7 @@ const logoutBtn = document.getElementById('logoutBtn');
 const eventImageInput = document.getElementById('eventImage');
 const eventImagePreview = document.getElementById('eventImagePreview');
 const searchInput = document.getElementById('searchInput');
+const imageCheckbox = document.getElementById('removeImageCheckbox');
 
 let editingEventId = null;
 let allEvents = []; // Store all events for search filtering
@@ -104,21 +105,27 @@ function showForm(isEdit = false, eventData = null) {
         document.getElementById('eventDescription').value = eventData.description || '';
         
         // Handle existing image
-        if (eventData.imageUrl) {
-            eventImagePreview.src = eventData.imageUrl;
+        if (eventData.imagePath) {
+            eventImagePreview.src = eventData.imagePath;
             eventImagePreview.style.display = 'block';
+
+            checkBoxLabel.style.display = 'inline-block';
         } else {
             eventImagePreview.src = '';
             eventImagePreview.style.display = 'none';
+
+            checkBoxLabel.style.display = 'none';
+            document.getElementById('removeImageCheckbox').checked = false;
         }
-        
-        if (eventImageInput) eventImageInput.value = '';
+
         editingEventId = eventData.id;
         console.log('editingEventId set to:', editingEventId);
     } else {
         eventForm.reset();
         eventImagePreview.src = '';
         eventImagePreview.style.display = 'none';
+        checkBoxLabel.style.display = 'none';
+        document.getElementById('removeImageCheckbox').checked = false;
         editingEventId = null;
     }
 }
@@ -173,6 +180,11 @@ function triggerSearch() {
     searchEvents(query);
 }
 
+function clearSearch() {
+    document.getElementById('searchInput').value = "";
+    triggerSearch(); // Reload full list after clearing
+}
+
 function displayEvents(events) {
     if (events.length === 0) {
         eventsList.innerHTML = '<p style="color: var(--muted);">No events yet. Create your first event!</p>';
@@ -182,9 +194,9 @@ function displayEvents(events) {
     console.log('Displaying events:', events);
     eventsList.innerHTML = events.map(event => `
         <div class="event-card">
-            ${event.imageUrl ? `<img src="${event.imageUrl}" alt="${event.title}" class="event-card-image" style="max-width:200px; border-radius:6px; margin-bottom:8px;">` : ''}
             <div class="event-content">
                 <h3>${event.title}</h3>
+                ${event.imagePath ? `<img src="${event.imagePath}" alt="${event.title}" class="event-card-image" style="max-width:200px; border-radius:6px; margin-bottom:8px;">` : ''}
                 <div class="event-details">
                     <span>📅 ${formatDate(event.date)}</span>
                     <span>📍 ${event.location}</span>
@@ -192,7 +204,7 @@ function displayEvents(events) {
                 ${event.description ? `<p class="event-description">${event.description}</p>` : ''}
             </div>
             <div class="event-actions">
-                <button class="edit-btn" onclick="editEvent(${event.id})">Edit</button>
+                <button class="edit-btn" onclick="showEditEventForm(${event.id})">Edit</button>
                 <button class="delete-btn" onclick="deleteEvent(${event.id})">Delete</button>
             </div>
         </div>
@@ -207,57 +219,32 @@ function formatDate(dateString) {
 // Create Event
 async function createEvent(eventData) {
     try {
-        // Check if there's an image file
-        const hasImage = eventImageInput && eventImageInput.files && eventImageInput.files[0];
+        const formData = new FormData();
+        formData.append('title', eventData.title);
+        formData.append('date', eventData.date);
+        formData.append('location', eventData.location);
+        formData.append('description', eventData.description || '');
+
         
-        if (hasImage) {
-            // Use FormData for multipart/form-data
-            const formData = new FormData();
-            formData.append('title', eventData.title);
-            formData.append('date', eventData.date);
-            formData.append('location', eventData.location);
-            formData.append('description', eventData.description || '');
+        if (eventImageInput?.files[0]) {
             formData.append('image', eventImageInput.files[0]);
+        }
 
-            const response = await fetch(`${API_URL}/events`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData
-            });
+        const response = await fetch(`${API_URL}/events`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
 
-            const data = await response.json();
-
-            if (response.ok) {
-                showSuccess('Event created successfully!');
-                hideForm();
-                loadEvents();
-            } else if (response.status === 401) {
-                handleTokenError();
-            } else {
-                showError(data.error || 'Failed to create event');
-            }
+        const data = await response.json();
+        if (response.ok) {
+            showSuccess('Event created successfully!');
+            hideForm();
+            loadEvents();
+        } else if (response.status === 401) {
+            handleTokenError();
         } else {
-            // Use JSON for simple data without image
-            const response = await fetch(`${API_URL}/events`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(eventData)
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok) {
-                showSuccess('Event created successfully!');
-                hideForm();
-                loadEvents();
-            } else if (response.status === 401) {
-                handleTokenError();
-            } else {
-                showError(data.error || 'Failed to create event');
-            }
+            showError(data.error || 'Failed to create event');
         }
     } catch (err) {
         console.error(err);
@@ -268,91 +255,36 @@ async function createEvent(eventData) {
 // Update Event
 async function updateEvent(id, eventData) {
     try {
-        console.log('Updating event with id:', id, 'Data:', eventData);
-        
-        // Check if there's a new image file
-        const hasNewImage = eventImageInput && eventImageInput.files && eventImageInput.files[0];
-        
-        if (hasNewImage) {
-            // Use FormData for multipart/form-data with new image
-            const formData = new FormData();
-            formData.append('title', eventData.title);
-            formData.append('date', eventData.date);
-            formData.append('location', eventData.location);
-            formData.append('description', eventData.description || '');
-            formData.append('image', eventImageInput.files[0]);
+        const formData = new FormData();
+        formData.append('title', eventData.title);
+        formData.append('date', eventData.date);
+        formData.append('location', eventData.location);
+        formData.append('description', eventData.description || '');
 
-            console.log('Updating with new image');
-            const response = await fetch(`${API_URL}/events/${id}`, {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                if (response.status === 401) {
-                    handleTokenError();
-                } else {
-                    showError(data.error || 'Failed to update event');
-                }
-                return;
-            }
-
-            showSuccess('Event updated successfully!');
-            hideForm();
-            loadEvents();
-        } else {
-            // Use JSON for simple data without new image
-            // First, get the current event to preserve the existing image
-            const currentEventResponse = await fetch(`${API_URL}/events/${id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (!currentEventResponse.ok) {
-                if (currentEventResponse.status === 401) {
-                    handleTokenError();
-                } else {
-                    showError('Failed to get current event data');
-                }
-                return;
-            }
-            
-            const currentEvent = await currentEventResponse.json();
-            
-            // Include the existing imageUrl in the update
-            const updateData = {
-                ...eventData,
-                imageUrl: currentEvent.imageUrl // Preserve existing image
-            };
-            
-            console.log('Updating without new image, preserving existing:', currentEvent.imageUrl);
-            
-            const response = await fetch(`${API_URL}/events/${id}`, {
-                method: 'PUT',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(updateData)
-            });
-            
-            const data = await response.json();
-
-            if (!response.ok) {
-                if (response.status === 401) {
-                    handleTokenError();
-                } else {
-                    showError(data.error || 'Failed to update event');
-                }
-                return;
-            }
-            
-            showSuccess('Event updated successfully!');
-            hideForm();
-            loadEvents();
+        if (eventImageInput?.files[0]) {
+            formData.append('image', eventImageInput.files[0]); // optional
         }
+
+        const removeImage = imageCheckbox?.checked || false;
+        formData.append('removeImage', removeImage);
+
+        const response = await fetch(`${API_URL}/events/${id}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` }, // no Content-Type needed
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            if (response.status === 401) handleTokenError();
+            else showError(data.error || 'Failed to update event');
+            return;
+        }
+
+        showSuccess('Event updated successfully!');
+        hideForm();
+        loadEvents();
     } catch (err) {
         console.error('Update error:', err);
         showError('Connection error. Make sure your server is running.');
@@ -360,8 +292,9 @@ async function updateEvent(id, eventData) {
 }
 
 // Edit Event
-async function editEvent(id) {
+async function showEditEventForm(id) {
     try {
+        window.scrollTo(0, 0);
         console.log('Fetching event with id:', id);
         const response = await fetch(`${API_URL}/events/${id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -399,6 +332,7 @@ async function deleteEvent(id) {
         
         if (response.ok) {
             showSuccess('Event deleted successfully!');
+            hideForm();
             loadEvents();
         } else if (response.status === 401) {
             handleTokenError();
@@ -454,5 +388,5 @@ logoutBtn.addEventListener('click', () => {
 
 // Load events on page load
 loadEvents();
-window.editEvent = editEvent;
+window.showEditEventForm = showEditEventForm;
 window.deleteEvent = deleteEvent;
