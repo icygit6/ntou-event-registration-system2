@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>海大活動報名系統</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#94a3b8; --accent:#0ea5a0; --glass:rgba(255,255,255,0.03);
+      --radius:14px; --gap:16px; --maxw:1100px;
+      color-scheme: dark;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:linear-gradient(180deg,#071127 0%, #081226 100%); color:#e6eef6}
+    .container{max-width:var(--maxw);margin:28px auto;padding:20px}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#06b6d4);display:flex;align-items:center;justify-content:center;font-weight:700;color:#042029}
+    h1{margin:0;font-size:1.05rem}
+    p.lead{margin:0;color:var(--muted);font-size:0.9rem}
+    .controls{display:flex;gap:10px;align-items:center}
+
+    /* Global button styling: clickable look & feel (visual-only) */
+    button{
+      -webkit-tap-highlight-color: transparent;
+      cursor: pointer;
+      background:var(--accent);
+      border:none;
+      padding:8px 12px;
+      border-radius:10px;
+      color:#042029;
+      font-weight:600;
+      transition:transform 120ms cubic-bezier(.2,.9,.3,1), box-shadow 120ms, filter 120ms;
+      box-shadow: 0 6px 14px rgba(2,6,23,0.35);
+      user-select: none;
+    }
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);box-shadow:none}
+    button:focus{outline:3px solid rgba(14,165,160,0.14);outline-offset:2px}
+    button:hover{transform:translateY(-3px) scale(1.01);filter:brightness(1.02)}
+    button:active, button.pressed{transform:translateY(0) scale(0.99);box-shadow:0 3px 8px rgba(2,6,23,0.45);}
+    button[disabled]{opacity:0.6;cursor:not-allowed;transform:none;box-shadow:none}
+
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:20px;margin-top:20px}
+    .card{background:var(--card);padding:16px;border-radius:var(--radius);box-shadow:0 6px 20px rgba(2,6,23,0.6)}
+    .search-row{display:flex;gap:10px;margin-bottom:12px}
+    .search-row input{flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:var(--glass);color:inherit}
+    .filters{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.02);font-size:0.85rem;color:var(--muted)}
+
+    .events-section{margin-top:8px}
+    .events-section h3{margin:6px 0 12px 0}
+    .event-item{display:flex;gap:12px;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);align-items:center;border:1px solid rgba(255,255,255,0.02);cursor:pointer}
+    .event-item + .event-item{margin-top:10px}
+    .event-meta{flex:1}
+    .event-title{margin:0;font-weight:700}
+    .event-desc{margin:6px 0 0 0;color:var(--muted);font-size:0.9rem}
+    .badge{font-size:0.75rem;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.02)}
+
+    .right .card{position:sticky;top:28px}
+    .small{font-size:0.85rem;color:var(--muted)}
+
+    .modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);z-index:60}
+    .modal{width:min(880px,94%);max-height:88vh;overflow:auto;background:linear-gradient(180deg,#071226,#08142a);border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,0.04)}
+    .modal.show{display:flex}
+
+    form{display:grid;gap:8px}
+    label{font-size:0.85rem;color:var(--muted)}
+    input, textarea, select{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit}
+    textarea{min-height:100px}
+    .row{display:flex;gap:8px}
+    .row > *{flex:1}
+
+    footer{margin-top:28px;color:var(--muted);font-size:0.85rem;text-align:center}
+
+    @media (max-width:900px){.grid{grid-template-columns:1fr}.right{order:2}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo">NTOU</div>
+        <div>
+          <h1>海大活動報名系統</h1>
+          <p class="lead">Browse, register, and manage campus events — organizer tools included.</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <span class="small" id="currentUser">Not signed in</span>
+        <button id="btnLogin">Sign in / Register</button>
+        <button id="btnOrganizer" class="ghost">Organizer Panel</button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section>
+        <div class="card">
+          <div class="search-row">
+            <input id="q" placeholder="Search events (e.g. workshop, volunteer, club)" />
+            <button id="btnSearch">Search</button>
+            <button id="btnClear" class="ghost">Clear</button>
+          </div>
+
+          <div class="filters">
+            <div class="chip" data-filter="upcoming">Upcoming</div>
+            <div class="chip" data-filter="past">Past</div>
+            <div class="chip" data-filter="volunteer">Volunteer</div>
+            <div class="chip" data-filter="workshop">Workshop</div>
+          </div>
+
+          <div class="events-section">
+            <h3>Current Events</h3>
+            <div id="eventsCurrent" aria-live="polite"></div>
+
+            <h3 style="margin-top:18px">Event History</h3>
+            <div id="eventsPast"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <h3>Notes / Testing</h3>
+          <p class="small">This frontend example is pure HTML + vanilla JS and expects a REST backend (Node.js + Express + MySQL). If no backend is available it uses demo data.</p>
+          <ul class="small">
+            <li>Open this file in a browser (or host on a static server).</li>
+            <li>Replace <code>fetchURL</code> in the script with your API base URL when integrating the backend.</li>
+            <li>I can also generate the backend example (Node.js + MySQL) on request.</li>
+          </ul>
+        </div>
+      </section>
+
+      <aside class="right">
+        <div class="card">
+          <h3>Quick Actions</h3>
+          <p class="small">Click an event to view details and register (if open).</p>
+
+          <div style="margin-top:12px">
+            <strong>Suggested API endpoints</strong>
+            <ul class="small">
+              <li>GET /api/events?search=&lt;q&gt; — list events</li>
+              <li>GET /api/events/:id — event detail</li>
+              <li>POST /api/events/:id/register — register for event (auth required)</li>
+              <li>POST /api/auth/login — user login</li>
+              <li>POST /api/auth/register — user signup</li>
+              <li>POST /api/events — (organizer) create event</li>
+              <li>PUT /api/events/:id — edit event</li>
+              <li>DELETE /api/events/:id — delete event</li>
+            </ul>
+          </div>
+
+          <div style="margin-top:12px">
+            <strong>Recommended MySQL tables</strong>
+            <div class="small">
+              <pre style="white-space:pre-wrap;margin:6px 0">users(id, student_id, name, email, password_hash, role (user/organizer/admin), created_at)
+events(id, organizer_id, title, description, location, start_time, end_time, capacity, image_url, created_at, updated_at)
+registrations(id, event_id, user_id, status (applied/cancelled), created_at)</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <h3>Organizer Features</h3>
+          <p class="small">Create / edit / delete events. Click "Organizer Panel" to open the create-event form (demo).</p>
+          <button id="btnCreateEvent">Create New Event</button>
+        </div>
+      </aside>
+    </main>
+
+    <footer>
+      <small>Team 8 — Demo frontend for NTOU Event Registration System</small>
+    </footer>
+  </div>
+
+  <!-- Event detail modal -->
+  <div id="modalBackdrop" class="modal-backdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 id="modalTitle">Event Title</h2>
+        <div>
+          <button id="btnCloseModal" class="ghost">Close</button>
+        </div>
+      </div>
+
+      <p id="modalWhen" class="small"></p>
+      <p id="modalWhere" class="small"></p>
+      <p id="modalDesc" style="margin-top:8px"></p>
+
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+        <div class="badge" id="modalCapacity">Remaining: -</div>
+        <div class="small" id="modalStatus">Status: -</div>
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button id="btnRegister">Register</button>
+        <button id="btnRetract" class="ghost">Retract</button>
+      </div>
+
+      <hr style="margin:12px 0;border-color:rgba(255,255,255,0.03)" />
+
+      <div id="modalAdminActions" style="display:none">
+        <h3>Organizer Actions</h3>
+        <button id="btnEditEvent" class="ghost">Edit</button>
+        <button id="btnDeleteEvent" class="ghost">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- create event modal -->
+  <div id="createBackdrop" class="modal-backdrop">
+    <div class="modal">
+      <h2>Create / Edit Event</h2>
+      <form id="formEvent">
+        <label>Title<input name="title" required /></label>
+        <label>Location<input name="location" required /></label>
+        <div class="row">
+          <label>Start<input name="start_time" type="datetime-local" required /></label>
+          <label>End<input name="end_time" type="datetime-local" required /></label>
+        </div>
+        <label>Capacity<input name="capacity" type="number" min="1" required /></label>
+        <label>Description<textarea name="description"></textarea></label>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button type="submit">Save</button>
+          <button type="button" id="btnCancelCreate" class="ghost">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- login modal -->
+  <div id="loginBackdrop" class="modal-backdrop">
+    <div class="modal">
+      <h2>Sign in / Register</h2>
+      <form id="formAuth">
+        <label>Student ID or Email<input name="account" required /></label>
+        <label>Password<input name="password" type="password" required /></label>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button type="submit">Sign in</button>
+          <button type="button" id="btnRegisterUser" class="ghost">Register</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Demo front-end behaviour (visual-only buttons)
+    const fetchURL = '';
+
+    const eventsCurrent = document.getElementById('eventsCurrent');
+    const eventsPast = document.getElementById('eventsPast');
+    const q = document.getElementById('q');
+    const btnSearch = document.getElementById('btnSearch');
+    const btnClear = document.getElementById('btnClear');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDesc = document.getElementById('modalDesc');
+    const modalWhen = document.getElementById('modalWhen');
+    const modalWhere = document.getElementById('modalWhere');
+    const modalCapacity = document.getElementById('modalCapacity');
+    const btnRegister = document.getElementById('btnRegister');
+    const btnRetract = document.getElementById('btnRetract');
+    const btnCloseModal = document.getElementById('btnCloseModal');
+    const btnLogin = document.getElementById('btnLogin');
+    const loginBackdrop = document.getElementById('loginBackdrop');
+    const formAuth = document.getElementById('formAuth');
+    const btnOrganizer = document.getElementById('btnOrganizer');
+    const createBackdrop = document.getElementById('createBackdrop');
+    const formEvent = document.getElementById('formEvent');
+    const btnCreateEvent = document.getElementById('btnCreateEvent');
+    const btnCancelCreate = document.getElementById('btnCancelCreate');
+
+    let DEMO_EVENTS = [
+      {id:1, title:'NTOU Freshers Volunteer Briefing', description:'Volunteer recruitment for campus orientation.', location:'Main Entrance Plaza', start_time:'2025-10-20T18:00', end_time:'2025-10-20T20:00', capacity:50, registrations:12},
+      {id:2, title:'CS Club: JS Workshop', description:'Intro to JavaScript and algorithm practice.', location:'CS Building 301', start_time:'2025-09-15T13:00', end_time:'2025-09-15T16:00', capacity:30, registrations:30},
+      {id:3, title:'Campus Concert (archived)', description:'Highlights from last year\'s concert.', location:'Auditorium', start_time:'2024-12-10T19:00', end_time:'2024-12-10T21:30', capacity:500, registrations:480}
+    ];
+
+    function isPast(ev){return new Date(ev.end_time) < new Date()}
+    function remaining(ev){return Math.max(0, ev.capacity - (ev.registrations||0))}
+
+    function renderList(events){
+      eventsCurrent.innerHTML=''; eventsPast.innerHTML='';
+      events.forEach(ev=>{
+        const item = document.createElement('div'); item.className='event-item';
+        const meta = document.createElement('div'); meta.className='event-meta';
+        const title = document.createElement('h4'); title.className='event-title'; title.textContent=ev.title;
+        const desc = document.createElement('p'); desc.className='event-desc'; desc.textContent=ev.description;
+        meta.appendChild(title); meta.appendChild(desc);
+        const info = document.createElement('div'); info.style.textAlign='right';
+        const when = document.createElement('div'); when.className='small'; when.textContent = new Date(ev.start_time).toLocaleString();
+        const cap = document.createElement('div'); cap.className='badge'; cap.textContent = `Remaining: ${remaining(ev)} / ${ev.capacity}`;
+        info.appendChild(when); info.appendChild(cap);
+        item.appendChild(meta); item.appendChild(info);
+        // keep event click visual only by *not* wiring up functionality
+        item.addEventListener('click',(e)=>{
+          // add a tiny visual feedback when clicking the item
+          item.classList.add('pressed'); setTimeout(()=>item.classList.remove('pressed'),140);
+        });
+
+        if (isPast(ev)) eventsPast.appendChild(item); else eventsCurrent.appendChild(item);
+      });
+    }
+
+    async function loadEventsFromServer(qstr=''){
+      if (!fetchURL) return DEMO_EVENTS;
+      const res = await fetch(fetchURL + '/api/events' + (qstr?('?search='+encodeURIComponent(qstr)):''));
+      if (!res.ok) throw new Error('fetch events failed');
+      return await res.json();
+    }
+
+    async function refresh(qstr=''){
+      try{
+        const events = await loadEventsFromServer(qstr);
+        renderList(events);
+      }catch(e){
+        console.warn('Using demo data', e);
+        renderList(DEMO_EVENTS);
+      }
+    }
+
+    // Important: make buttons *visual-only* by intercepting clicks at capture phase
+    // This prevents existing handlers from running and ensures clicks only show a pressed effect.
+    document.addEventListener('click', function(event){
+      const btn = event.target.closest('button');
+      if (!btn) return; // not a button click
+      // stop other handlers from firing
+      event.stopImmediatePropagation();
+      event.preventDefault();
+      // visual pressed effect
+      btn.classList.add('pressed');
+      setTimeout(()=>btn.classList.remove('pressed'),140);
+    }, true);
+
+    // wire a few non-functional UI behaviors (purely visual modals, no data change)
+    btnSearch.addEventListener('click', (e)=>{ /* intercepted by capture handler => visual only */ });
+    btnClear.addEventListener('click', (e)=>{ q.value=''; refresh(); });
+
+    // demo modal open/close are now visual-only: we still toggle visibility, but no backend changes
+    // Note: because the capture listener prevents default propagation, we implement modal toggles via mousedown => setTimeout to run after capture.
+    function safeRun(fn){ setTimeout(fn, 0); }
+
+    document.getElementById('btnLogin').addEventListener('mousedown', ()=> safeRun(()=> loginBackdrop.classList.add('show')));
+    loginBackdrop.addEventListener('mousedown', (e)=>{ if (e.target===loginBackdrop) safeRun(()=> loginBackdrop.classList.remove('show')); });
+    document.getElementById('btnCancelCreate').addEventListener('mousedown', ()=> safeRun(()=> createBackdrop.classList.remove('show')));
+    document.getElementById('btnCreateEvent').addEventListener('mousedown', ()=> safeRun(()=> createBackdrop.classList.add('show')));
+    document.getElementById('btnCloseModal').addEventListener('mousedown', ()=> safeRun(()=> modalBackdrop.classList.remove('show')));
+    modalBackdrop.addEventListener('mousedown', (e)=>{ if (e.target===modalBackdrop) safeRun(()=> modalBackdrop.classList.remove('show')); });
+
+    // keep form submissions harmless (visual only)
+    document.getElementById('formEvent').addEventListener('submit', function(e){ e.preventDefault(); safeRun(()=>{ createBackdrop.classList.remove('show'); }); });
+    document.getElementById('formAuth').addEventListener('submit', function(e){ e.preventDefault(); safeRun(()=>{ loginBackdrop.classList.remove('show'); document.getElementById('currentUser').textContent = 'demo_user'; }); });
+
+    // initial load
+    refresh();
+  </script>
+</body>
+</html>

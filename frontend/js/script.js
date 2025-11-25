@@ -33,28 +33,20 @@ if (token) {
     }
 }
 
-// Update header based on login status - BUT DON'T REPLACE BUTTONS IMMEDIATELY
-function updateHeaderForLoggedInUser() {
-    if (currentUser) {
-        let htmlDesc = `<span class='logo'>你好, ${currentUser.name}</span>`;
-        if(currentUser.role == 'Advanced User') {
-            htmlDesc += `<a href="events.html"><button>Manage Events</button></a>`;
-        }
-        htmlDesc += `<button class="ghost" id="logoutBtn">Logout</button>`;
+// Update header based on login status
+if (currentUser) {
+    let htmlDesc = `<span class='logo'>你好, `+ currentUser.name+`</span>`;
+    if(currentUser.role == 'Advanced User')
+        htmlDesc += `<a href="events.html"><button>Manage Events</button></a>`;
+    htmlDesc += `<button class="ghost" id="logoutBtn">Logout</button>`;
 
-        headerButtons.innerHTML = htmlDesc;
-        
-        // Add logout event listener
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', () => {
-                localStorage.removeItem('authToken');
-                alert('You have successfully logged out!');
-                window.location.reload();
-            });
-        }
-    }
-    // If not logged in, keep the original Sign In/Register buttons
+    headerButtons.innerHTML = htmlDesc;
+    const logoutBtn = document.getElementById('logoutBtn');
+    logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('authToken');
+        alert('You have successfully logged out!');
+        window.location.reload();
+    });
 }
 
 // Load and display events
@@ -128,11 +120,28 @@ function getEventIcon(title) {
     return '📌';
 }
 
+// Load events on page load
+loadEvents();
+
+// Search functionality
+if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+        searchEvents(e.target.value);
+    });
+}
+// Clear button
+function clearSearch() {
+    document.getElementById('searchInput').value = "";
+    triggerSearch(); // Reload full list after clearing
+}
+
+
 // Apply for an event
 async function applyEvent(eventId, eventTitle) {
     if (!currentUser) {
         alert('Please sign in to apply for events');
-        return false;
+        window.location.href = 'signin.html';
+        return;
     }
 
     try {
@@ -149,34 +158,11 @@ async function applyEvent(eventId, eventTitle) {
 
         if (response.ok) {
             alert(`Successfully applied for "${eventTitle}"!`);
-            return true;
         } else {
             alert(data.error || 'Failed to apply for event');
-            return false;
         }
     } catch (err) {
         console.error(err);
         alert('Connection error. Please try again.');
-        return false;
     }
 }
-
-// Initialize everything when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    // Update header based on login status
-    updateHeaderForLoggedInUser();
-    
-    // Load events
-    loadEvents();
-
-    // Search functionality
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            searchEvents(e.target.value);
-        });
-    }
-});
-
-// Make functions available globally
-window.applyEvent = applyEvent;
-window.triggerSearch = triggerSearch;
