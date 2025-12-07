@@ -3,8 +3,17 @@ const API_URL = 'http://localhost:5500';
 const headerButtons = document.getElementById('headerButtons');
 const eventsList = document.getElementById('eventsList');
 const searchInput = document.getElementById('searchInput');
+const hamburgerMenu = document.getElementById('hamburgerMenu');
+const sidePanel = document.getElementById('sidePanel');
+const sideMenu = document.getElementById('sideMenu');
+const closeSidePanel = document.getElementById('closeSidePanel');
+const pageTitle = document.getElementById('pageTitle');
 
-let allEvents = []; // Store all events for search filtering
+let allEvents = [];       // Original events
+
+function closeSlidePanel() {
+    sidePanel.classList.remove('open');
+}
 
 function parseJwt(token) {
     try {
@@ -33,6 +42,11 @@ if (token) {
     }
 }
 
+let newChild = document.createElement('li');
+newChild.className = "menu-item events";
+newChild.textContent = "Events";
+sideMenu.appendChild(newChild);
+
 // Update header based on login status
 if (currentUser) {
     let htmlDesc = `<span class='logo'>你好, `+ currentUser.name+`</span>`;
@@ -47,10 +61,37 @@ if (currentUser) {
         alert('You have successfully logged out!');
         window.location.reload();
     });
+
+    const className = ["menu-item history", "menu-item user", "separator", "menu-item changePass"];
+    const textContent = ["History", "User List", null, "Change Password"]
+
+    for(let i = 0; i < className.length; i++)
+    {
+        newChild = document.createElement('li');
+        newChild.className = className[i];
+
+        if(className[i] == "separator")
+        {
+            const hr = document.createElement('hr');
+            newChild.appendChild(hr);
+        }
+        else
+        {
+            newChild.textContent = textContent[i];
+        }
+        sideMenu.appendChild(newChild);
+    }
+
+    if(currentUser.role == "user")
+    {
+        const userLi = document.querySelector(".menu-item.user");
+        if (userLi) userLi.style.display = "none";
+    }
 }
 
 // Load and display events
 async function loadEvents() {
+    pageTitle.textContent = "活動列表 (Events)";
     try {
         const response = await fetch(`${API_URL}/events`);
         const events = await response.json();
@@ -64,6 +105,26 @@ async function loadEvents() {
     } catch (err) {
         console.error(err);
         eventsList.innerHTML = '<p style="color: var(--muted);">No events available.</p>';
+    }
+}
+
+async function loadHistory() {
+    pageTitle.textContent = "歷史活動 (History)";
+    try {
+        const response = await fetch(`${API_URL}/history`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const events = await response.json();
+
+        if (response.ok) {
+            allEvents = events; 
+            displayEvents(events);
+        } else {
+            eventsList.innerHTML = '<p style="color: var(--muted);">Failed to load history.</p>';
+        }
+    } catch (err) {
+        console.error(err);
+        eventsList.innerHTML = '<p style="color: var(--muted);">No history available.</p>';
     }
 }
 
@@ -89,7 +150,7 @@ function triggerSearch() {
 
 function displayEvents(events) {
     if (events.length === 0) {
-        eventsList.innerHTML = '<p style="color: var(--muted);">No events scheduled yet.</p>';
+        eventsList.innerHTML = '<p style="color: var(--muted);">No data found.</p>';
         return;
     }
     
@@ -165,3 +226,37 @@ async function applyEvent(eventId, eventTitle) {
         alert('Connection error. Please try again.');
     }
 }
+
+hamburgerMenu.addEventListener('click', () => {
+    sidePanel.classList.add('open');
+});
+
+// Close panel
+closeSidePanel.addEventListener('click', () => {
+    closeSlidePanel();
+});
+
+// Clicking outside closes it (optional)
+document.addEventListener('click', (e) => {
+    if (!sidePanel.contains(e.target) && !hamburgerMenu.contains(e.target)) {
+        closeSlidePanel();
+    }
+});
+
+sideMenu.addEventListener("click", e => {
+
+    const item = e.target.closest(".menu-item");
+    if (!item) return;  // click wasn't on an li
+
+    if (item.classList.contains("events")) {
+        loadEvents();
+    }
+    if (item.classList.contains("history")) {
+        loadHistory();
+    }
+    if (item.classList.contains("changePass")) {
+        window.location.href = 'changePass.html';
+    }
+
+    closeSlidePanel();
+});

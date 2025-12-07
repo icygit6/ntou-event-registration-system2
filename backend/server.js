@@ -142,10 +142,69 @@ function verifyToken(req, res, next) {
     }
 }
 
+// -------------Verify Old Password-------------
+app.post('/users/verify-password', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { oldPassword } = req.body;
+
+        if (!oldPassword) {
+            return res.status(400).json({ error: 'Old password is required' });
+        }
+
+        // Find user in DB
+        const user = await db.collection('users').findOne({ id: parseInt(userId) });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // Compare password
+        const match = await bcrypt.compare(oldPassword, user.password_hash);
+        if (!match) return res.status(401).json({ error: 'Old password is incorrect' });
+
+        res.json({ message: 'Password verified' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to verify password' });
+    }
+});
+
+// -------------Change Password Endpoint-------------
+app.patch('/users/update-password', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.id; // from JWT payload
+        const { newPassword } = req.body;
+
+        if (!newPassword) {
+            return res.status(400).json({ error: 'New password is required' });
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+        // Update in DB
+        const result = await db.collection('users').updateOne(
+            { id: parseInt(userId) },
+            { $set: { password_hash: hashedPassword } }
+        );
+
+        if (result.modifiedCount === 0) {
+            return res.status(500).json({ error: 'Failed to update password' });
+        }
+
+        res.json({ message: 'Password updated successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update password' });
+    }
+});
+
 // ---------- Get all events ----------
 app.get('/events', async (req, res) => {
     try {
-        const events = await db.collection('events').find({}).toArray();
+        const now = new Date(); // current date and time
+        const events = await db.collection('events').find({
+            $expr: { $gte: [ { $toDate: "$date" }, now ] } // only future events
+        }).toArray();
+        
         res.json(events);
     } catch (err) {
         console.error(err);
@@ -166,12 +225,31 @@ app.get('/events/:id', async (req, res) => {
     }
 });
 
+//----------- Get History ----------
+app.get('/history', verifyToken, async (req, res) => {
+    try {
+        const now = new Date();
+        const history = await db.collection('events').aggregate([
+            { 
+                $lookup: { from: "applications", localField: "id", foreignField: "eventId", as: "apps" }
+            },
+            { 
+                $match: { apps: { $elemMatch: { userEmail: req.user.email, status: 1 } },$expr: { $lt: [ { $toDate: "$date" }, now ] }}
+            },
+            { $project: { apps: 0 } }
+        ]).toArray();
+        res.json(history);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch history' });
+    }
+});
+
 // ---------- Create new event ----------
 app.post('/events', verifyToken, upload.single('image'), async (req, res) => {
     try {
-        const { title, date, location, description } = req.body;
+        const { title, date, location, participationLimit, description } = req.body;
 
-        if (!title || !date || !location) {
+        if (!title || !date || !location || !participationLimit) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
@@ -189,6 +267,7 @@ app.post('/events', verifyToken, upload.single('image'), async (req, res) => {
             title,
             date,
             location,
+            participationLimit: parseInt(participationLimit),
             description: description || '',
             imagePath: req.file ? req.file.path : null,
             createdBy: req.user.id,
@@ -208,7 +287,7 @@ app.post('/events', verifyToken, upload.single('image'), async (req, res) => {
 app.put('/events/:id', verifyToken, upload.single('image'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, date, location, description, removeImage } = req.body;
+        const { title, date, location, participationLimit, description, removeImage } = req.body;
         if (!title || !date || !location) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
@@ -217,6 +296,7 @@ app.put('/events/:id', verifyToken, upload.single('image'), async (req, res) => 
             title,
             date,
             location,
+            participationLimit: parseInt(participationLimit),
             description: description || '',
             updatedAt: new Date().toISOString()
         };
@@ -284,6 +364,17 @@ app.post('/events/:id/apply', verifyToken, async (req, res) => {
         // Check if event exists
         const event = await db.collection('events').findOne({ id: parseInt(id) });
         if (!event) return res.status(404).json({ error: 'Event not found' });
+
+        //Check participation limit
+        const currentCount = await db.collection('applications').countDocuments({
+            eventId: parseInt(id),
+            status: 1 
+        });
+        if (currentCount >= event.participationLimit) {
+            return res.status(400).json({ 
+                error: 'Participation limit reached for this event' 
+            });
+        }
 
         // Create application record
         const application = {

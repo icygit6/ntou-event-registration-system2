@@ -10,6 +10,19 @@
 <body>
   
   <header>
+    <div id="hamburgerMenu" class="hamburger">☰</div>
+
+    <!-- Slide-Out Panel -->
+    <div id="sidePanel" class="side-panel">
+      <div class="side-panel-header">
+        <h2><font color="white">Menu</font></h2>
+        <span id="closeSidePanel" class="close-btn">×</span>
+      </div>
+      <hr>
+
+      <ul class="side-panel-list" id="sideMenu"></ul>
+    </div>
+    
     <div class="logo">海大活動報名系統</div>
     <div class="search-section" style="flex: 1; text-align: center; margin: 0 20px; display: flex; justify-content: center; gap: 8px; align-items: center;">
       <input type="text" id="searchInput" placeholder="Search events by title..." style="padding: 10px 15px; font-size: 14px; border: 1px solid var(--border-color); border-radius: 4px; width: 280px;">
@@ -24,7 +37,7 @@
 
   <main>
     <div class="page-header">
-      <h2>活動列表 (Events)</h2>
+      <h2 id="pageTitle">活動列表 (Events)</h2>
     </div>
     
     <div id="eventsList">

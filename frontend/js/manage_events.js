@@ -73,24 +73,6 @@ function showSuccess(msg) {
     setTimeout(() => successMsg.style.display = 'none', 3000);
 }
 
-// Image preview
-if (eventImageInput) {
-    eventImageInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                eventImagePreview.src = e.target.result;
-                eventImagePreview.style.display = 'block';
-            };
-            reader.readAsDataURL(file);
-        } else {
-            eventImagePreview.src = '';
-            eventImagePreview.style.display = 'none';
-        }
-    });
-}
-
 // Show/Hide Form
 function showForm(isEdit = false, eventData = null) {
     eventFormContainer.style.display = 'block';
@@ -102,6 +84,7 @@ function showForm(isEdit = false, eventData = null) {
         document.getElementById('eventTitle').value = eventData.title;
         document.getElementById('eventDate').value = eventData.date;
         document.getElementById('eventLocation').value = eventData.location;
+        document.getElementById('eventParticipationLimit').value = eventData.participationLimit;
         document.getElementById('eventDescription').value = eventData.description || '';
         
         // Handle existing image
@@ -223,6 +206,7 @@ async function createEvent(eventData) {
         formData.append('title', eventData.title);
         formData.append('date', eventData.date);
         formData.append('location', eventData.location);
+        formData.append('participationLimit', eventData.participationLimit);
         formData.append('description', eventData.description || '');
 
         
@@ -259,6 +243,7 @@ async function updateEvent(id, eventData) {
         formData.append('title', eventData.title);
         formData.append('date', eventData.date);
         formData.append('location', eventData.location);
+        formData.append('participationLimit', eventData.participationLimit);
         formData.append('description', eventData.description || '');
 
         if (eventImageInput?.files[0]) {
@@ -357,6 +342,34 @@ if (searchInput) {
     });
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+    const local = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+                    .toISOString()
+                    .split("T")[0];
+
+    document.getElementById("eventDate").setAttribute("min", local);
+});
+
+// Image preview
+if (eventImageInput) {
+    eventImageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                eventImagePreview.src = e.target.result;
+                eventImagePreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            eventImagePreview.src = '';
+            eventImagePreview.style.display = 'none';
+        }
+    });
+}
+
 eventForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -364,6 +377,7 @@ eventForm.addEventListener('submit', async (e) => {
         title: document.getElementById('eventTitle').value.trim(),
         date: document.getElementById('eventDate').value,
         location: document.getElementById('eventLocation').value.trim(),
+        participationLimit: document.getElementById('eventParticipationLimit').value.trim(),
         description: document.getElementById('eventDescription').value.trim()
     };
     

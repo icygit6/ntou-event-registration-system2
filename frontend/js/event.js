@@ -29,6 +29,26 @@ function showSuccess(msg) {
     setTimeout(() => successMsg.style.display = 'none', 3000);
 }
 
+function isPastEvent(eventDateString) {
+    const now = new Date();
+    
+    const todayLocal = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+    );
+
+    const evDate = new Date(eventDateString);
+    const eventLocal = new Date(
+        evDate.getFullYear(),
+        evDate.getMonth(),
+        evDate.getDate()
+    );
+
+    return eventLocal < todayLocal;
+}
+
+
 const token = localStorage.getItem('authToken');
 let currentUser = null;
 if (token) {
@@ -76,8 +96,10 @@ async function loadEvent() {
 async function renderEvent(event) {
     const imgSrc = event.imagePath;
 
+    const past = isPastEvent(event.date);
+
     let userApplied = false;
-    if (currentUser) {
+    if (currentUser && !past) {
         try {
             const resp = await fetch(`${API_URL}/events/${event.id}/applied`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -94,14 +116,20 @@ async function renderEvent(event) {
             <h2 style="margin-top:12px;">${event.title}</h2>
             ${imgSrc ? `<img src="${imgSrc}" alt="Event Image" style="width:100%; max-height:300px; object-fit:cover; border-radius:6px;"/>` : ``}
             <p><strong>📅</strong> ${new Date(event.date).toLocaleDateString()} &nbsp; <strong>📍</strong> ${event.location}</p>
+            <p>Participant Limit: ${event.participationLimit}</p>
             ${event.description ? `<p style="margin-top:8px;">${event.description}</p>` : ''}
 
             <div style="margin-top:16px;">
-                ${currentUser ? 
-                `<button id="actionBtn" class="submit-btn" style="${userApplied ? 'background-color:red;' : ''}">
-                    ${userApplied ? 'Retract' : 'Apply'}
-                </button>` 
-                : `<a href="signin.html"><button class="submit-btn">Sign in to apply</button></a>`}
+                ${past
+                    ? `<button class="submit-btn" disabled style="background-color:gray; cursor:not-allowed;">Event Ended</button>`
+                    : (
+                        currentUser
+                        ? `<button id="actionBtn" class="submit-btn" style="${userApplied ? 'background-color:red;' : ''}">
+                            ${userApplied ? 'Retract' : 'Apply'}
+                        </button>`
+                        : `<a href="signin.html"><button class="submit-btn">Sign in to apply</button></a>`
+                    )
+                }
             </div>
         </div>
     `;
