@@ -50,7 +50,7 @@ sideMenu.appendChild(newChild);
 // Update header based on login status
 if (currentUser) {
     let htmlDesc = `<span class='logo'>你好, `+ currentUser.name+`</span>`;
-    if(currentUser.role == 'Advanced User')
+    if(currentUser.role != 'User')
         htmlDesc += `<a href="manage_events.html"><button>Manage Events</button></a>`;
     htmlDesc += `<button class="ghost" id="logoutBtn">Logout</button>`;
 
@@ -62,8 +62,8 @@ if (currentUser) {
         window.location.reload();
     });
 
-    const className = ["menu-item history", "menu-item user", "separator", "menu-item changePass"];
-    const textContent = ["History", "User List", null, "Change Password"]
+    const className = ["menu-item history", "menu-item past", "menu-item user", "separator", "menu-item changePass"];
+    const textContent = ["History", "Past Events", "User List", null, "Change Password"]
 
     for(let i = 0; i < className.length; i++)
     {
@@ -82,9 +82,14 @@ if (currentUser) {
         sideMenu.appendChild(newChild);
     }
 
-    if(currentUser.role == "user")
+    if(currentUser.role == "User")
     {
         const userLi = document.querySelector(".menu-item.user");
+        if (userLi) userLi.style.display = "none";
+    }
+    if(currentUser.role != "Administrator")
+    {
+        const userLi = document.querySelector(".menu-item.past");
         if (userLi) userLi.style.display = "none";
     }
 }
@@ -125,6 +130,26 @@ async function loadHistory() {
     } catch (err) {
         console.error(err);
         eventsList.innerHTML = '<p style="color: var(--muted);">No history available.</p>';
+    }
+}
+
+async function loadPastEvents() {
+    pageTitle.textContent = "已結束活動 (Past Events)";
+    try {
+        const response = await fetch(`${API_URL}/past`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const events = await response.json();
+
+        if (response.ok) {
+            allEvents = events; 
+            displayEvents(events);
+        } else {
+            eventsList.innerHTML = '<p style="color: var(--muted);">Failed to load past events.</p>';
+        }
+    } catch (err) {
+        console.error(err);
+        eventsList.innerHTML = '<p style="color: var(--muted);">No past events available.</p>';
     }
 }
 
@@ -253,6 +278,9 @@ sideMenu.addEventListener("click", e => {
     }
     if (item.classList.contains("history")) {
         loadHistory();
+    }
+    if (item.classList.contains("past")) {
+        loadPastEvents();
     }
     if (item.classList.contains("changePass")) {
         window.location.href = 'changePass.html';

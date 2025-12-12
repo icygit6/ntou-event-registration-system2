@@ -57,6 +57,7 @@ if (token) {
 }
 
 const eventContainer = document.getElementById('eventContainer');
+const eventParticipationContainer = document.getElementById('eventParticipantContainer');
 const messageBox = document.getElementById('message');
 
 function getQueryParam(name) {
@@ -71,6 +72,32 @@ function showMessage(txt, isError = false) {
     setTimeout(() => { messageBox.style.display = 'none'; }, 4000);
 }
 
+async function loadParticipant() {
+    const id = getQueryParam('id');
+    const res = await fetch(`${API_URL}/eventParticipants/${encodeURIComponent(id)}`);
+    const event = await res.json();
+    if (!res.ok) {
+        eventParticipationContainer.innerHTML = `<p style="color: var(--muted);">${event.error || 'Participant not found'}</p>`;
+        return;
+    }
+
+    eventParticipationContainer.style.display = "block";
+    const participants = event.participants || [];
+    if (participants.length === 0) {
+        eventParticipationContainer.innerHTML =
+            `<p style="color: var(--muted);">There are no participants.</p>`;
+        return;
+    }
+
+    let html = `<p><strong>Participants:</strong></p><ol style="padding-left: 0; margin: 0; list-style-position: inside;">`;
+    participants.forEach(p => {
+        html += `<li>${p.name}</li>`;
+    });
+    html += `</ol>`;
+
+    eventParticipationContainer.innerHTML = html;
+}
+
 async function loadEvent() {
     const id = getQueryParam('id');
     if (!id) {
@@ -79,14 +106,14 @@ async function loadEvent() {
     }
 
     try {
-        const res = await fetch(`${API_URL}/events/${encodeURIComponent(id)}`);
-        const event = await res.json();
+        let res = await fetch(`${API_URL}/events/${encodeURIComponent(id)}`);
+        let event = await res.json();
         if (!res.ok) {
             eventContainer.innerHTML = `<p style="color: var(--muted);">${event.error || 'Event not found'}</p>`;
             return;
         }
-
         renderEvent(event);
+        if(currentUser.role == "Administrator") loadParticipant();
     } catch (err) {
         console.error(err);
         eventContainer.innerHTML = '<p style="color: var(--muted);">Connection error. Make sure server is running.</p>';
@@ -134,56 +161,71 @@ async function renderEvent(event) {
         </div>
     `;
 
+    attachButtonHandler(event, userApplied);
+}
+
+function attachButtonHandler(event, userApplied)
+{
     const actionBtn = document.getElementById('actionBtn');
     if(!actionBtn) return;
 
     if (!userApplied) {
-        actionBtn.addEventListener('click', async () => {
-            try {
-                const response = await fetch(`${API_URL}/events/${event.id}/apply`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await response.json();
-
-                if (!response.ok) {
-                    showError(data.error || 'Failed to apply for event');
-                    return;
-                }
-
-                showSuccess(data.message || 'Applied successfully!');
-                renderEvent(event); // re-render to switch button to "Retract"
-            } catch (err) {
-                console.error('Apply error:', err);
-                showError('Connection error. Make sure your server is running.');
-            }
-        });
+        actionBtn.addEventListener('click', () => applyEvent(event));
     } else {
-        actionBtn.addEventListener('click', async () => {
-            try {
-                const response = await fetch(`${API_URL}/events/${event.id}/apply`, {
-                    method: 'PATCH',
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ status: 0 })
-                });
-                const data = await response.json();
-
-                if (!response.ok) {
-                    showError(data.error || 'Failed to retract application');
-                    return;
-                }
-
-                showSuccess(data.message || 'Application retracted.');
-                renderEvent(event); // re-render to switch button back to "Apply"
-            } catch (err) {
-                console.error('Retract error:', err);
-                showError('Connection error. Make sure your server is running.');
-            }
-        });
+        actionBtn.addEventListener('click', () => retractEvent(event));
     }
+}
+
+async function applyEvent(event)
+{
+    try {
+        const response = await fetch(`${API_URL}/events/${event.id}/apply`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            showError(data.error || 'Failed to apply for event');
+            return;
+        }
+
+        showSuccess(data.message || 'Applied successfully!');
+        renderEvent(event); // re-render to switch button to "Retract"
+    } catch (err) {
+        console.error('Apply error:', err);
+        showError('Connection error. Make sure your server is running.');
+    }
+
+    if(currentUser.role == "Administrator") loadParticipant();
+}
+
+async function retractEvent(event)
+{
+    try {
+        const response = await fetch(`${API_URL}/events/${event.id}/apply`, {
+            method: 'PATCH',
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: 0 })
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            showError(data.error || 'Failed to retract application');
+            return;
+        }
+
+        showSuccess(data.message || 'Application retracted.');
+        renderEvent(event); // re-render to switch button back to "Apply"
+    } catch (err) {
+        console.error('Retract error:', err);
+        showError('Connection error. Make sure your server is running.');
+    }
+
+    if(currentUser.role == "Administrator") loadParticipant();
 }
 
 loadEvent();

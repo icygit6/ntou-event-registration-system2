@@ -79,7 +79,8 @@ app.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        const role = 'user';
+        const role = 'User';
+        const occupation = 'Student';
         const created_at = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
         const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -89,6 +90,7 @@ app.post('/register', async (req, res) => {
             email: email_or_phone,
             password_hash: hashedPassword,
             role,
+            occupation,
             created_at
         };
 
@@ -116,7 +118,7 @@ app.post('/signin', async (req, res) => {
 
         // Create JWT token (valid for 1 hour)
         const token = jwt.sign(
-            { email: user.email, name: user.name, id: user.id, role: user.role },
+            { email: user.email, name: user.name, id: user.id, role: user.role, occupation: user.occupation },
             SECRET_KEY,
             { expiresIn: '1h' }
         );
@@ -197,7 +199,7 @@ app.patch('/users/update-password', verifyToken, async (req, res) => {
     }
 });
 
-// ---------- Get all events ----------
+// ---------- Get ongoing events ----------
 app.get('/events', async (req, res) => {
     try {
         const now = new Date(); // current date and time
@@ -241,6 +243,44 @@ app.get('/history', verifyToken, async (req, res) => {
         res.json(history);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch history' });
+    }
+});
+
+//----------- Get Past Events ----------\
+app.get('/past', async (req, res) => {
+    try {
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
+        const events = await db.collection('events').find({
+            $expr: {
+                $lte: [ { $toDate: "$date" }, todayEnd ]  // all events with date <= end of today
+            }
+        }).toArray();
+
+        res.json(events);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch past events' });
+    }
+});
+
+// ---------- Get all participant of an Event ----------
+app.get('/eventParticipants/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const participants = await db.collection('applications').aggregate([
+            { $match: {eventId: parseInt(id), status: 1} },
+            { $lookup: {from: 'users', localField: 'userId', foreignField: 'id', as: 'user'}},
+            { $unwind: '$user' },
+            { $project: {_id: 0, name: '$user.name'}}
+        ]).toArray();
+
+        res.json({ participants });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch event participants' });
     }
 });
 
@@ -380,8 +420,6 @@ app.post('/events/:id/apply', verifyToken, async (req, res) => {
         const application = {
             eventId: parseInt(id),
             userId: userId,
-            userEmail: req.user.email,
-            userName: req.user.name,
             appliedAt: new Date().toISOString(),
             status: 1
         };

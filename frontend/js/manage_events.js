@@ -344,12 +344,15 @@ if (searchInput) {
 
 document.addEventListener("DOMContentLoaded", () => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); 
-    const local = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
-                    .toISOString()
-                    .split("T")[0];
+    today.setHours(0, 0, 0, 0);
 
-    document.getElementById("eventDate").setAttribute("min", local);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const localTomorrow = new Date(tomorrow.getTime() - tomorrow.getTimezoneOffset() * 60000)
+                            .toISOString()
+                            .split("T")[0];
+
+    document.getElementById("eventDate").setAttribute("min", localTomorrow);
 });
 
 // Image preview
