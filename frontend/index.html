@@ -38,6 +38,24 @@
   <main>
     <div class="page-header">
       <h2 id="pageTitle">活動列表 (Events)</h2>
+
+      <div class="horizontal-view">
+        <div class="ddl">
+          <div class="ddlselected" style="width: 80px;" id="ddlCat">Name</div>
+          <ul class="ddloptions" style="width: 80px; right: 20%;">
+            <li class="ddlperoption" data-value="name">Name</li>
+            <li class="ddlperoption" data-value="date">Date</li>
+          </ul>
+        </div>
+
+        <div class="ddl">
+          <div class="ddlselected" style="width: 120px;" id="ddlOrd">Ascending</div>
+          <ul class="ddloptions" style="width: 120px;">
+            <li class="ddlperoption" data-sort="asc">Ascending</li>
+            <li class="ddlperoption" data-sort="dsc">Descending</li>
+          </ul>
+        </div>
+      </div>
     </div>
     
     <div id="eventsList">

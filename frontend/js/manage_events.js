@@ -35,6 +35,9 @@ const imageCheckbox = document.getElementById('removeImageCheckbox');
 
 let editingEventId = null;
 let allEvents = []; // Store all events for search filtering
+let searchMode = 'events';
+let sortCat = "date";
+let sortOrd = "asc";
 
 // Utility Functions
 function parseJwt(token) {
@@ -143,19 +146,81 @@ async function loadEvents() {
     }
 }
 
+function sortList(type, category, order) {
+    const items = Array.from(eventsList.children);
+
+    function getEventDateValue(item) {
+        let raw =
+            item.dataset.date ||
+            item.querySelector(".event-date")?.textContent.trim() ||
+            "";
+
+        if (!raw) return 0;
+
+        // normalize separators
+        raw = raw.replace(/\//g, "-");
+
+        const parts = raw.split("-").map(Number);
+
+        let yyyy, mm, dd;
+
+        // YYYY-MM-DD
+        if (parts[0] > 1000) {
+            [yyyy, mm, dd] = parts;
+        }
+        // MM-DD-YYYY
+        else {
+            [mm, dd, yyyy] = parts;
+        }
+
+        return yyyy * 10000 + mm * 100 + dd;
+    }
+
+    items.sort((a, b) => {
+        if (category === "date" && type === "events") {
+            const A = getEventDateValue(a);
+            const B = getEventDateValue(b);
+
+            return order === "asc" ? A - B : B - A;
+        }
+
+        const valA = a.dataset[category] || "";
+        const valB = b.dataset[category] || "";
+
+        return order === "asc"
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA);
+    });
+
+    items.forEach(item => eventsList.appendChild(item));
+}
+
 function searchEvents(query) {
     if (!query.trim()) {
         // If search is empty, display all events
-        displayEvents(allEvents);
+        if (searchMode == 'events')
+            displayEvents(allEvents);
+        else
+            displayUsers(allEvents);
         return;
     }
     
     // Filter events by title (case-insensitive)
-    const filteredEvents = allEvents.filter(event => 
-        event.title.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    displayEvents(filteredEvents);
+    let filteredEvents = [];
+    if(searchMode == 'events') {
+        filteredEvents = allEvents.filter(event => 
+            event.title.toLowerCase().includes(query.toLowerCase())
+        );
+        
+        displayEvents(filteredEvents);
+    }
+    else {
+        filteredEvents = allEvents.filter(event =>
+            event.name.toLowerCase().includes(query.toLowerCase())
+        );
+
+        displayUsers(filteredEvents);
+    }
 }
 
 function triggerSearch() {
@@ -176,7 +241,10 @@ function displayEvents(events) {
     
     console.log('Displaying events:', events);
     eventsList.innerHTML = events.map(event => `
-        <div class="event-card">
+        <div class="event-card"
+            data-name="${event.title.toLowerCase()}" 
+            data-date="${event.date}" 
+        >
             <div class="event-content">
                 <h3>${event.title}</h3>
                 ${event.imagePath ? `<img src="${event.imagePath}" alt="${event.title}" class="event-card-image" style="max-width:200px; border-radius:6px; margin-bottom:8px;">` : ''}
@@ -192,6 +260,10 @@ function displayEvents(events) {
             </div>
         </div>
     `).join('');
+
+    //set default order list for events
+    sortCat = "date"; sortOrd = "asc";    // sorting by date closest before displaying data
+    sortList("events", sortCat, sortOrd);
 }
 
 function formatDate(dateString) {

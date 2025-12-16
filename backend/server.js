@@ -4,7 +4,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const upload = require("./upload");
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 
 const SALT_ROUNDS = 10;
 const SECRET_KEY = '9e7ae63e6d9e3654139277c630af4973';
@@ -199,12 +199,24 @@ app.patch('/users/update-password', verifyToken, async (req, res) => {
     }
 });
 
+// ---------- Get User for User List ------------
+app.get('/users', async (req, res) => {
+    try{
+        const users = await db.collection('users').find().toArray();
+        res.json(users);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
+});
+
 // ---------- Get ongoing events ----------
 app.get('/events', async (req, res) => {
     try {
-        const now = new Date(); // current date and time
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999); //set 'today' events regarded as past events
         const events = await db.collection('events').find({
-            $expr: { $gte: [ { $toDate: "$date" }, now ] } // only future events
+            $expr: { $gt: [ { $toDate: "$date" }, todayEnd ] } // only future events
         }).toArray();
         
         res.json(events);
@@ -357,6 +369,91 @@ app.put('/events/:id', verifyToken, upload.single('image'), async (req, res) => 
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to update event' });
+    }
+});
+
+// ----------- Edit User -------------
+
+// fetch
+app.get('/users/:id/retrieve', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const user = await db.collection('users').findOne(
+            { _id: new ObjectId(id) },
+            { projection: { password: 0 } } // optional safety
+        );
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        res.json(user);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to load user' });
+    }
+});
+
+// update
+app.put('/users/:id/send', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, role, occupation } = req.body;
+
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (role) updateData.role = role;
+        if (occupation) updateData.occupation = occupation;
+
+        if(Object.keys(updateData).length === 0) {
+            return res.status(400).json({message: "? No fields to update"});
+        }
+
+        const result = await db.collection('users').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateData }
+        );
+
+        if(result.matchedCount === 0) return res.status(404).json({message: "User not found"});
+
+        res.json({success: true, message: "User updated successfully."});
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({message: "Failed to update user..."});
+    }
+});
+
+// ---------- Delete User ------------
+app.delete('/users/:id', async (req, res) => {
+    try {
+        const mongoId = req.params.id;
+        const objectId = new ObjectId(mongoId);
+
+        const user = await db.collection('users').findOne({_id: objectId});
+        if(!user) return res.json({success: false, message: "User not found"});
+
+        const userId = user.id;
+        const deleteResult = await db.collection('users').deleteOne({ _id: objectId });
+        console.log("Deleted count:", deleteResult.deletedCount);
+        if (deleteResult.deletedCount === 0) return res.status(500).json({ success: false, message: "User deletion failed" });
+
+        console.log("Updating applications for userId:", userId);
+        const apps = await db.collection('applications').find({ userId: userId }).toArray();
+        console.log("Applications found:", apps.length, apps.map(a => a._id));
+
+        const updateResult = await db.collection('applications').updateMany(
+            { userId: userId },
+            { $set: { status: 0 } }
+        );
+        console.log("Applications updated:", updateResult.modifiedCount);
+
+        res.json({success: true, message: "User deleted and applications fully cancelled successfully."});
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to delete user...'});
     }
 });
 

@@ -41,6 +41,26 @@ header {
     background: transparent;
     border: 1px solid var(--accent);
 }
+.buttons button.edit-btn {
+    margin-left: 8px;
+    background: var(--accent);
+    border: none;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.buttons button.delete-btn {
+    margin-left: 8px;
+    background: red;
+    border: none;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.2s;
+}
 main {
     padding: 20px;
     max-width: 900px;
@@ -60,6 +80,12 @@ h2 {
 }
 .event small {
     color: var(--muted);
+}
+.horizontal-view {
+    display: flex;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 10px;
 }
 
 /* ---------- Modal Styles ---------- */
@@ -147,7 +173,7 @@ h2 {
 .page-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: baseline;
     margin-bottom: 20px;
 }
 
@@ -657,4 +683,53 @@ input[type="date"]:hover {
 
 .side-panel-list li.separator {
     pointer-events: none;
+}
+
+.ddl {
+    position: relative;
+    width: 100px;
+}
+
+.ddlselected {
+    justify-self: center;
+    padding: 10px 15px;
+    margin-right: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: white;
+    background: var(--accent);
+    cursor: pointer;
+
+    box-sizing: border-box;
+}
+
+
+.ddl .ddloptions {
+    position: absolute;
+    top: 100%;
+    right: 0%;
+    width: 100%;
+
+    list-style: none;
+    margin: 5px 0 0 0;
+    padding-left: 7px;
+    padding-right: 7px;
+
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: #fff;
+    color: var(--accent);
+
+    display: none;
+    box-sizing: border-box;
+    z-index: 1000;
+}
+
+.ddl .ddlperoption:hover {
+    background: var(--muted);
+    color: white;
+}
+
+.ddl .ddlselected:hover {
+    opacity: 0.85;
 }
