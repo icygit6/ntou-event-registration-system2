@@ -2,6 +2,8 @@ const API_URL = 'http://localhost:5500';
 const errorMsg = document.getElementById('errorMsg');
 const successMsg = document.getElementById('successMsg');
 
+let occupations = ['Organizer', 'Teacher', 'Student'];
+
 function parseJwt(token) {
     try {
         const base64Url = token.split('.')[1];
@@ -98,6 +100,23 @@ async function loadParticipant() {
     eventParticipationContainer.innerHTML = html;
 }
 
+function isUserAllowed(eventPermission, currentUser) {
+    if (currentUser?.role === "Administrator") {
+        return true;
+    }
+
+    // Safety checks
+    if (!eventPermission == null) {
+        return false;
+    }
+
+    const index = occupations.indexOf(currentUser.occupation);
+    if (index === -1) {
+        return false;
+    }
+    return eventPermission[index] === "1";
+}
+
 async function loadEvent() {
     const id = getQueryParam('id');
     if (!id) {
@@ -125,14 +144,16 @@ async function renderEvent(event) {
 
     const past = isPastEvent(event.date);
 
-    let userApplied = false;
+    let applyStatus = 0;
     if (currentUser && !past) {
         try {
             const resp = await fetch(`${API_URL}/events/${event.id}/applied`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            if (!resp.ok) throw new Error("Failed to fetch status");
+
             const data = await resp.json();
-            userApplied = data.applied;
+            applyStatus = data.status;
         } catch (err) {
             console.error('Check applied error:', err);
         }
@@ -151,9 +172,21 @@ async function renderEvent(event) {
                     ? `<button class="submit-btn" disabled style="background-color:gray; cursor:not-allowed;">Event Ended</button>`
                     : (
                         currentUser
-                        ? `<button id="actionBtn" class="submit-btn" style="${userApplied ? 'background-color:red;' : ''}">
-                            ${userApplied ? 'Retract' : 'Apply'}
-                        </button>`
+                        ? (
+                            isUserAllowed(event.permission, currentUser)
+                            ? `<button id="actionBtn" class="submit-btn" style="${
+                                applyStatus === 1 || applyStatus === 2 ? 'background-color:red;' : ''
+                            }">
+                                ${
+                                applyStatus === 1
+                                    ? 'Retract' : applyStatus === 2
+                                    ? 'Retract from waiting list' : 'Apply'
+                                }
+                            </button>`
+                            : `<button class="submit-btn" disabled style="background-color:gray; cursor:not-allowed;">
+                                Not eligible to apply
+                            </button>`
+                        )
                         : `<a href="signin.html"><button class="submit-btn">Sign in to apply</button></a>`
                     )
                 }
@@ -161,15 +194,15 @@ async function renderEvent(event) {
         </div>
     `;
 
-    attachButtonHandler(event, userApplied);
+    attachButtonHandler(event, applyStatus);
 }
 
-function attachButtonHandler(event, userApplied)
+function attachButtonHandler(event, applyStatus)
 {
     const actionBtn = document.getElementById('actionBtn');
     if(!actionBtn) return;
 
-    if (!userApplied) {
+    if (applyStatus === 0) {
         actionBtn.addEventListener('click', () => applyEvent(event));
     } else {
         actionBtn.addEventListener('click', () => retractEvent(event));

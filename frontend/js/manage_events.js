@@ -32,8 +32,10 @@ const eventImageInput = document.getElementById('eventImage');
 const eventImagePreview = document.getElementById('eventImagePreview');
 const searchInput = document.getElementById('searchInput');
 const imageCheckbox = document.getElementById('removeImageCheckbox');
+const participantSpan = document.getElementById('participantSpan');
 
 let editingEventId = null;
+let occupations = ['Organizer', 'Teacher', 'Student'];
 let allEvents = []; // Store all events for search filtering
 let searchMode = 'events';
 let sortCat = "date";
@@ -76,11 +78,52 @@ function showSuccess(msg) {
     setTimeout(() => successMsg.style.display = 'none', 3000);
 }
 
+function renderParticipants(isEdit, eventData) {
+  participantSpan.innerHTML = ""; // clear old content
+  const permissionBits = isEdit && eventData?.permission ? eventData.permission : null;
+
+  occupations.forEach((occupation, index) => {
+    // wrapper for each pair
+    const wrapper = document.createElement("span");
+    wrapper.style.display = "inline-flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.marginRight = "16px";
+    wrapper.style.gap = "2px";
+
+    // label text
+    const label = document.createElement("label");
+    label.textContent = occupation;
+    label.htmlFor = `participant_${index}`;
+    label.style.cursor = "pointer";
+
+    // checkbox
+    const checkbox = document.createElement("input");
+    checkbox.style.position = "relative";
+    checkbox.style.top = "3px";   // try 1–2px
+    checkbox.type = "checkbox";
+    checkbox.id = `participant_${index}`;
+    checkbox.name = "participants";
+    checkbox.value = occupation;
+
+    if (permissionBits) {
+        checkbox.checked = permissionBits[index] === "1";
+    } else {
+        checkbox.checked = true; // default for new event
+        checkbox.setAttribute("checked", ""); // forces the browser to render as checked
+    }
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(checkbox);
+    participantSpan.appendChild(wrapper);
+  });
+}
+
 // Show/Hide Form
 function showForm(isEdit = false, eventData = null) {
     eventFormContainer.style.display = 'block';
     formTitle.textContent = isEdit ? 'Edit Event' : 'Add New Event';
     submitEventBtn.textContent = isEdit ? 'Update Event' : 'Save Event';
+    renderParticipants(isEdit, eventData);
     
     if (eventData) {
         console.log('showForm - loading event data with id:', eventData.id);
@@ -278,6 +321,7 @@ async function createEvent(eventData) {
         formData.append('title', eventData.title);
         formData.append('date', eventData.date);
         formData.append('location', eventData.location);
+        formData.append('permission', eventData.permission);
         formData.append('participationLimit', eventData.participationLimit);
         formData.append('description', eventData.description || '');
 
@@ -315,6 +359,7 @@ async function updateEvent(id, eventData) {
         formData.append('title', eventData.title);
         formData.append('date', eventData.date);
         formData.append('location', eventData.location);
+        formData.append('permission', eventData.permission);
         formData.append('participationLimit', eventData.participationLimit);
         formData.append('description', eventData.description || '');
 
@@ -336,6 +381,7 @@ async function updateEvent(id, eventData) {
         if (!response.ok) {
             if (response.status === 401) handleTokenError();
             else showError(data.error || 'Failed to update event');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
@@ -351,7 +397,7 @@ async function updateEvent(id, eventData) {
 // Edit Event
 async function showEditEventForm(id) {
     try {
-        window.scrollTo(0, 0);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         console.log('Fetching event with id:', id);
         const response = await fetch(`${API_URL}/events/${id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -447,11 +493,18 @@ if (eventImageInput) {
 
 eventForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const checkboxes = document.querySelectorAll('#participantSpan input[type="checkbox"]');
+    let result = "";
+
+    checkboxes.forEach(cb => {
+        result += cb.checked ? "1" : "0";
+    });
     
     const eventData = {
         title: document.getElementById('eventTitle').value.trim(),
         date: document.getElementById('eventDate').value,
         location: document.getElementById('eventLocation').value.trim(),
+        permission: result,
         participationLimit: document.getElementById('eventParticipationLimit').value.trim(),
         description: document.getElementById('eventDescription').value.trim()
     };

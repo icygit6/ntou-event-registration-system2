@@ -1,9 +1,11 @@
 // backend/index.js
+require("dotenv").config();
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const upload = require("./upload");
+const { sendEmail } = require("./email");
 const { MongoClient, ObjectId } = require('mongodb');
 
 const SALT_ROUNDS = 10;
@@ -299,7 +301,7 @@ app.get('/eventParticipants/:id', async (req, res) => {
 // ---------- Create new event ----------
 app.post('/events', verifyToken, upload.single('image'), async (req, res) => {
     try {
-        const { title, date, location, participationLimit, description } = req.body;
+        const { title, date, location, permission, participationLimit, description } = req.body;
 
         if (!title || !date || !location || !participationLimit) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -319,6 +321,7 @@ app.post('/events', verifyToken, upload.single('image'), async (req, res) => {
             title,
             date,
             location,
+            permission,
             participationLimit: parseInt(participationLimit),
             description: description || '',
             imagePath: req.file ? req.file.path : null,
@@ -339,15 +342,32 @@ app.post('/events', verifyToken, upload.single('image'), async (req, res) => {
 app.put('/events/:id', verifyToken, upload.single('image'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, date, location, participationLimit, description, removeImage } = req.body;
+        const { title, date, location, permission, participationLimit, description, removeImage } = req.body;
         if (!title || !date || !location) {
             return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const event = await db.collection('events').findOne({ id: parseInt(id) });
+        if (!event) return res.status(404).json({ error: 'Event not found' });
+        const oldLimit = event.participationLimit;
+        const oldDate = event.date;
+        const newLimit = parseInt(participationLimit);
+
+        const currentCount = await db.collection('applications').countDocuments({
+            eventId: parseInt(id),
+            status: 1
+        });
+        if (currentCount > newLimit) {
+            return res.status(400).json({
+                error: `Cannot reduce participation limit below current confirmed participants (${currentCount})`
+            });
         }
 
         const updateData = {
             title,
             date,
             location,
+            permission,
             participationLimit: parseInt(participationLimit),
             description: description || '',
             updatedAt: new Date().toISOString()
@@ -363,6 +383,50 @@ app.put('/events/:id', verifyToken, upload.single('image'), async (req, res) => 
             { $set: updateData },
             { returnDocument: 'after' }
         );
+
+        const slotsAdded = newLimit - oldLimit;
+        if (slotsAdded > 0) {
+            const waitingUsers = await db.collection('applications')
+                .find({ eventId: parseInt(id), status: 2 })
+                .sort({ appliedAt: 1 })  // oldest first
+                .limit(slotsAdded)
+                .toArray();
+
+            if (waitingUsers.length > 0) {
+                const updatePromises = waitingUsers.map(u =>
+                    db.collection('applications').updateOne(
+                        { _id: u._id },
+                        { $set: { status: 1 } }
+                    )
+                );
+                await Promise.all(updatePromises);
+            }
+        }
+
+        // If date changed, send notifications
+        if (oldDate !== date) {
+            // Fetch all userIds of participants in this event with status = 1
+            const participants = await db.collection('applications').find({
+                eventId: parseInt(id),
+                status: 1
+            }).toArray();
+            const participantIds = participants.map(p => p.userId);
+
+            // Fetch emails of those participants who are Administrator or Advanced User
+            const usersToNotify = await db.collection('users').find({
+                id: { $in: participantIds },
+                role: { $in: ['Administrator', 'Advanced User'] }
+            }).toArray();
+
+            // Send emails in parallel
+            const emailPromises = usersToNotify.map(user => {
+                const subject = `Event "${title}" Date Changed`;
+                const body = `Hello ${user.name},\n\nThe event "${title}" has a new date: ${date} (previous date was ${oldDate}).\nPlease take note.\n\nBest regards,\nEvent System`;
+
+                sendEmail(user.email, subject, body);
+            });
+            await Promise.all(emailPromises);
+        }
 
         // Return the updated document under an `event` key instead of spreading
         res.json({ message: 'Event updated successfully', event: result.value });
@@ -399,7 +463,7 @@ app.get('/users/:id/retrieve', verifyToken, async (req, res) => {
 app.put('/users/:id/send', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, role, occupation } = req.body;
+        const { name, role, occupation, isSelf } = req.body;
 
         const updateData = {};
         if (name) updateData.name = name;
@@ -417,7 +481,17 @@ app.put('/users/:id/send', verifyToken, async (req, res) => {
 
         if(result.matchedCount === 0) return res.status(404).json({message: "User not found"});
 
-        res.json({success: true, message: "User updated successfully."});
+        let token = null;
+        if (isSelf) {
+            const updatedUser = await db.collection('users').findOne({ _id: new ObjectId(id) });
+            token = jwt.sign(
+                { email: updatedUser.email, name: updatedUser.name, id: updatedUser.id, role: updatedUser.role, occupation: updatedUser.occupation },
+                SECRET_KEY,
+                { expiresIn: '1h' }
+            );
+        }
+
+        res.json({success: true, message: "User updated successfully.", token});
 
     } catch (err) {
         console.error(err);
@@ -431,29 +505,44 @@ app.delete('/users/:id', async (req, res) => {
         const mongoId = req.params.id;
         const objectId = new ObjectId(mongoId);
 
-        const user = await db.collection('users').findOne({_id: objectId});
-        if(!user) return res.json({success: false, message: "User not found"});
+        const user = await db.collection('users').findOne({ _id: objectId });
+        if (!user) return res.json({ success: false, message: "User not found" });
 
         const userId = user.id;
         const deleteResult = await db.collection('users').deleteOne({ _id: objectId });
-        console.log("Deleted count:", deleteResult.deletedCount);
-        if (deleteResult.deletedCount === 0) return res.status(500).json({ success: false, message: "User deletion failed" });
+        if (deleteResult.deletedCount === 0)
+            return res.status(500).json({ success: false, message: "User deletion failed" });
 
-        console.log("Updating applications for userId:", userId);
-        const apps = await db.collection('applications').find({ userId: userId }).toArray();
-        console.log("Applications found:", apps.length, apps.map(a => a._id));
-
-        const updateResult = await db.collection('applications').updateMany(
+        const userApps = await db.collection('applications')
+            .find({ userId: userId, status: { $in: [1, 2] } })
+            .toArray();
+        await db.collection('applications').updateMany(
             { userId: userId },
             { $set: { status: 0 } }
         );
-        console.log("Applications updated:", updateResult.modifiedCount);
 
-        res.json({success: true, message: "User deleted and applications fully cancelled successfully."});
+        for (const app of userApps) {
+            if (app.status === 1) {
+                const oldestWaiting = await db.collection('applications')
+                    .find({ eventId: app.eventId, status: 2 }) // waiting list
+                    .sort({ appliedAt: 1 })                    // oldest first
+                    .limit(1)
+                    .toArray();
+
+                if (oldestWaiting.length > 0) {
+                    await db.collection('applications').updateOne(
+                        { _id: oldestWaiting[0]._id },
+                        { $set: { status: 1 } }
+                    );
+                }
+            }
+        }
+
+        res.json({ success: true, message: "User deleted and applications fully cancelled successfully." });
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ success: false, message: 'Failed to delete user...'});
+        res.status(500).json({ success: false, message: 'Failed to delete user...' });
     }
 });
 
@@ -479,13 +568,21 @@ app.get('/events/:id/applied', verifyToken, async (req, res) => {
         const { id } = req.params;
         const userId = req.user.id;
 
-        const application = await db.collection('applications').findOne({
-            eventId: parseInt(id),
-            userId: userId,
-            status: 1
-        });
+        const application = await db.collection('applications')
+            .find({
+                eventId: parseInt(id),
+                userId: userId
+            })
+            .sort({ appliedAt: -1 }) // most recent first
+            .limit(1)
+            .toArray();
 
-        res.json({ applied: !!application });
+        if (application.length === 0) {
+            return res.json({ status: 0 }); // 0 = not applied
+        }
+
+        res.json({ status: application[0].status });
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to check application' });
@@ -497,6 +594,7 @@ app.post('/events/:id/apply', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
+        let applyStatus = 1;
 
         // Check if event exists
         const event = await db.collection('events').findOne({ id: parseInt(id) });
@@ -507,22 +605,22 @@ app.post('/events/:id/apply', verifyToken, async (req, res) => {
             eventId: parseInt(id),
             status: 1 
         });
-        if (currentCount >= event.participationLimit) {
-            return res.status(400).json({ 
-                error: 'Participation limit reached for this event' 
-            });
-        }
+        if (currentCount >= event.participationLimit) { applyStatus = 2; }
 
         // Create application record
         const application = {
             eventId: parseInt(id),
             userId: userId,
             appliedAt: new Date().toISOString(),
-            status: 1
+            status: applyStatus
         };
 
         await db.collection('applications').insertOne(application);
         console.log(`User ${userId} applied for event ${id}`);
+
+        if (applyStatus === 2) {
+            return res.json({ message: 'Participation limit reached. You have been placed on the waiting list.' });
+        }
         res.json({ message: 'Application submitted successfully' });
     } catch (err) {
         console.error(err);
@@ -534,19 +632,41 @@ app.post('/events/:id/apply', verifyToken, async (req, res) => {
 app.patch('/events/:id/apply', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body; // expected to be 0
         const userId = req.user.id;
 
-        const result = await db.collection('applications').updateOne(
-            { eventId: parseInt(id), userId: userId, status: { $ne: 0 } },
-            { $set: { status: status } }
-        );
+        const currentApp = await db.collection('applications').findOne({
+            eventId: parseInt(id),
+            userId: userId,
+            status: { $in: [1, 2] } // only status 1 or 2
+        });
 
-        if (result.modifiedCount === 0) {
+        if (!currentApp) {
             return res.status(404).json({ error: 'Application not found or already retracted' });
         }
 
+        const previousStatus = currentApp.status; 
+        await db.collection('applications').updateOne(
+            { _id: currentApp._id },
+            { $set: { status: 0 } }
+        );
+
+        if (previousStatus === 1) {
+            const oldestWaiting = await db.collection('applications')
+                .find({ eventId: parseInt(id), status: 2 })
+                .sort({ appliedAt: 1 }) // oldest first
+                .limit(1)
+                .toArray();
+
+            if (oldestWaiting.length > 0) {
+                await db.collection('applications').updateOne(
+                    { _id: oldestWaiting[0]._id },
+                    { $set: { status: 1 } }
+                );
+            }
+        }
+
         res.json({ message: 'Application retracted successfully' });
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to retract application' });

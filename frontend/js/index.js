@@ -221,6 +221,7 @@ function editUser(e) {
     document.querySelectorAll(".edit-form").forEach(f => f.style.display = "none");
 
     const id = e.target.closest(".user-card").getAttribute("data-id");
+    const uid = e.target.closest(".user-card").getAttribute("data-userid");
 
     // Build the role dropdown dynamically
     let roleDropdown = '';
@@ -259,7 +260,7 @@ function editUser(e) {
     }
 
     formBox.innerHTML = `
-        <form onsubmit="submitEdit(event, '${id}')"
+        <form onsubmit="submitEdit(event, '${id}', '${uid}')"
             style="
                 margin-top:15px;
                 padding:16px;
@@ -283,9 +284,9 @@ function editUser(e) {
             <div style="margin-bottom:14px;">
                 <label style="display:inline-block; width:90px; font-weight:600;">Occupation:</label>
                 <select id="occupation-${id}" style="padding:6px 8px; border-radius:6px;">
-                    <option value="Student">Student</option>
-                    <option value="Teacher">Teacher</option>
                     <option value="Organizer">Organizer</option>
+                    <option value="Teacher">Teacher</option>
+                    <option value="Student">Student</option>
                 </select>
             </div>
 
@@ -326,12 +327,13 @@ async function showEditUserForm(id) {
     }
 }
 
-async function submitEdit(e, id) {
+async function submitEdit(e, id, userId) {
     e.preventDefault();
 
     const name = document.getElementById(`name-${id}`).value.trim();
     const role = document.getElementById(`role-${id}`).value;
     const occupation = document.getElementById(`occupation-${id}`).value;
+    const isSelf = currentUser && currentUser.id === parseInt(userId);
 
     try {
         const res = await fetch(`${API_URL}/users/${id}/send`, {
@@ -340,11 +342,22 @@ async function submitEdit(e, id) {
                 "Authorization": `Bearer ${token}`,
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({ name, role, occupation })
+            body: JSON.stringify({ name, role, occupation, isSelf })
         });
 
         const data = await res.json();
         if (!res.ok) throw new Error(data.message);
+
+        if (isSelf && data.token) {
+            localStorage.setItem('authToken', data.token);
+            const userData = parseJwt(data.token);
+            if (userData && userData.email) {
+                currentUser = userData;
+            } else {
+                // Invalid or expired token
+                localStorage.removeItem('authToken');
+            }
+        }
 
         alert("User updated");
         loadUserList(); // refresh list
@@ -534,7 +547,7 @@ function displayUsers(users) {
         <div class="event user-card" style="cursor: pointer;"
             data-id="${user._id}"
             data-userid="${user.id}"
-            data-name="${user.name.toLowerCase()}" 
+            data-name="${user.name}" 
             data-role="${user.role}"
             data-occupation="${user.occupation}"
             data-date="${user.created_at}"
