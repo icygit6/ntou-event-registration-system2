@@ -66,8 +66,8 @@ if (currentUser) {
         window.location.reload();
     });
 
-    const className = ["menu-item history", "menu-item past", "menu-item user", "separator", "menu-item changePass"];
-    const textContent = ["History", "Past Events", "User List", null, "Change Password"]
+    const className = ["menu-item applications", "menu-item history", "menu-item past", "menu-item user", "separator", "menu-item changePass"];
+    const textContent = ["Applications", "History", "Past Events", "User List", null, "Change Password"]
 
     for(let i = 0; i < className.length; i++)
     {
@@ -84,6 +84,20 @@ if (currentUser) {
             newChild.textContent = textContent[i];
         }
         sideMenu.appendChild(newChild);
+    }
+
+    // Add "My Events" for Advanced Users only
+    if(currentUser.role === "Advanced User") {
+        const myEventsItem = document.createElement('li');
+        myEventsItem.className = "menu-item myEvents";
+        myEventsItem.textContent = "My Events";
+        // Insert after Applications, before History
+        const applicationsItem = document.querySelector(".menu-item.applications");
+        if (applicationsItem && applicationsItem.nextSibling) {
+            sideMenu.insertBefore(myEventsItem, applicationsItem.nextSibling);
+        } else {
+            sideMenu.appendChild(myEventsItem);
+        }
     }
 
     if(currentUser.role == "User")
@@ -166,6 +180,54 @@ async function loadPastEvents() {
     } catch (err) {
         console.error(err);
         eventsList.innerHTML = '<p style="color: var(--muted);">No past events available.</p>';
+    }
+}
+
+async function loadApplications() {
+    pageTitle.textContent = "我的申請 (My Applications)";
+    searchMode = 'events';
+    searchInput.placeholder = (searchMode === 'users') 
+    ? "Search users by name..." 
+    : "Search events by title...";
+    try {
+        const response = await fetch(`${API_URL}/applications`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const events = await response.json();
+
+        if (response.ok) {
+            allEvents = events; 
+            displayEvents(events);
+        } else {
+            eventsList.innerHTML = '<p style="color: var(--muted);">Failed to load applications.</p>';
+        }
+    } catch (err) {
+        console.error(err);
+        eventsList.innerHTML = '<p style="color: var(--muted);">No applications available.</p>';
+    }
+}
+
+async function loadMyEvents() {
+    pageTitle.textContent = "我的活動 (My Events)";
+    searchMode = 'events';
+    searchInput.placeholder = (searchMode === 'users') 
+    ? "Search users by name..." 
+    : "Search events by title...";
+    try {
+        const response = await fetch(`${API_URL}/my-events`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const events = await response.json();
+
+        if (response.ok) {
+            allEvents = events; 
+            displayMyEvents(events);
+        } else {
+            eventsList.innerHTML = '<p style="color: var(--muted);">Failed to load my events.</p>';
+        }
+    } catch (err) {
+        console.error(err);
+        eventsList.innerHTML = '<p style="color: var(--muted);">No events found.</p>';
     }
 }
 
@@ -517,18 +579,74 @@ function displayEvents(events) {
         return;
     }
     
-    eventsList.innerHTML = events.map(event => `
-        <div class="event" style="cursor: pointer;" 
+    const formatCreationDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    };
+    
+    eventsList.innerHTML = events.map(event => {
+        const participantCount = event.participantCount || 0;
+        const maxParticipants = event.participationLimit || 0;
+        
+        return `
+        <div class="event" style="cursor: pointer; position: relative;" 
             data-name="${event.title.toLowerCase()}" 
             data-date="${event.date}" 
             onclick="window.location.href='event.html?id=${event.id}'"
         >
-            <h3>${getEventIcon(event.title)} ${event.title}</h3>
+            <h3>${event.title}</h3>
             ${event.imagePath ? `<img src="${event.imagePath}" alt="${event.title}" style="max-width:220px; border-radius:6px; display:block; margin-bottom:8px;">` : ''}
-            <small>📅 ${formatDate(event.date)} ｜ 📍 ${event.location}</small>
+            <small>📅 ${formatDate(event.date)} ｜ 📍 ${event.location} ｜ 👥 ${participantCount}/${maxParticipants}</small>
             ${event.description ? `<p style="color: var(--text); margin-top: 8px; font-size: 0.9rem;">${event.description}</p>` : ''}
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #475569; display: flex; justify-content: flex-end; gap: 15px; font-size: 0.8rem; color: var(--muted);">
+                ${event.ownerEmail ? `<span>👤 ${event.ownerEmail}</span>` : ''}
+                ${event.createdAt ? `<span>📅 ${formatCreationDate(event.createdAt)}</span>` : ''}
+            </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
+
+    //set default order list for events
+    document.getElementById('ddlCat').textContent = "Date";
+    document.getElementById('ddlOrd').textContent = "Ascending";
+    sortCat = "date"; sortOrd = "asc";    // sorting by date closest before displaying data
+    sortList("events", sortCat, sortOrd);
+}
+
+function displayMyEvents(events) {
+    if (events.length === 0) {
+        eventsList.innerHTML = '<p style="color: var(--muted);">No events found. Create your first event!</p>';
+        return;
+    }
+    
+    const formatCreationDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    };
+    
+    eventsList.innerHTML = events.map(event => {
+        const participantCount = event.participantCount || 0;
+        const maxParticipants = event.participationLimit || 0;
+        
+        return `
+        <div class="event" style="cursor: pointer; position: relative;" 
+            data-name="${event.title.toLowerCase()}" 
+            data-date="${event.date}" 
+            onclick="window.location.href='event.html?id=${event.id}'"
+        >
+            <h3>${event.title}</h3>
+            ${event.imagePath ? `<img src="${event.imagePath}" alt="${event.title}" style="max-width:220px; border-radius:6px; display:block; margin-bottom:8px;">` : ''}
+            <small>📅 ${formatDate(event.date)} ｜ 📍 ${event.location} ｜ 👥 Participants: ${participantCount}/${maxParticipants}</small>
+            ${event.description ? `<p style="color: var(--text); margin-top: 8px; font-size: 0.9rem;">${event.description}</p>` : ''}
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #475569; display: flex; justify-content: flex-end; gap: 15px; font-size: 0.8rem; color: var(--muted);">
+                ${event.ownerEmail ? `<span>👤 ${event.ownerEmail}</span>` : ''}
+                ${event.createdAt ? `<span>📅 ${formatCreationDate(event.createdAt)}</span>` : ''}
+            </div>
+        </div>
+    `;
+    }).join('');
 
     //set default order list for events
     document.getElementById('ddlCat').textContent = "Date";
@@ -584,15 +702,6 @@ function formatDate(dateString) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}/${month}/${day}`;
-}
-
-function getEventIcon(title) {
-    const titleLower = title.toLowerCase();
-    if (titleLower.includes('音樂') || titleLower.includes('music')) return '🎉';
-    if (titleLower.includes('ai') || titleLower.includes('tech') || titleLower.includes('技術')) return '🤖';
-    if (titleLower.includes('運動') || titleLower.includes('sport')) return '⚽';
-    if (titleLower.includes('藝術') || titleLower.includes('art')) return '🎨';
-    return '📌';
 }
 
 function getUserIcon(role) {
@@ -716,6 +825,12 @@ sideMenu.addEventListener("click", e => {
     
     if (item.classList.contains("events")) {
         loadEvents();
+    }
+    if (item.classList.contains("applications")) {
+        loadApplications();
+    }
+    if (item.classList.contains("myEvents")) {
+        loadMyEvents();
     }
     if (item.classList.contains("history")) {
         loadHistory();

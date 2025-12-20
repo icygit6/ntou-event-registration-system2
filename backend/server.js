@@ -217,9 +217,55 @@ app.get('/events', async (req, res) => {
     try {
         const todayEnd = new Date();
         todayEnd.setHours(23, 59, 59, 999); //set 'today' events regarded as past events
-        const events = await db.collection('events').find({
-            $expr: { $gt: [ { $toDate: "$date" }, todayEnd ] } // only future events
-        }).toArray();
+        
+        const events = await db.collection('events').aggregate([
+            {
+                $match: {
+                    $expr: { $gt: [ { $toDate: "$date" }, todayEnd ] } // only future events
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'createdBy',
+                    foreignField: 'id',
+                    as: 'owner'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'applications',
+                    localField: 'id',
+                    foreignField: 'eventId',
+                    as: 'applications'
+                }
+            },
+            {
+                $addFields: {
+                    ownerEmail: {
+                        $ifNull: [
+                            { $arrayElemAt: ['$owner.email', 0] },
+                            null
+                        ]
+                    },
+                    participantCount: {
+                        $size: {
+                            $filter: {
+                                input: '$applications',
+                                as: 'app',
+                                cond: { $eq: ['$$app.status', 1] }
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    owner: 0,
+                    applications: 0
+                }
+            }
+        ]).toArray();
         
         res.json(events);
     } catch (err) {
@@ -228,16 +274,241 @@ app.get('/events', async (req, res) => {
     }
 });
 
+// ---------- Get events for management (filtered by owner for advanced users) ----------
+app.get('/manage/events', verifyToken, async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        const userId = req.user.id;
+        
+        let matchQuery = {};
+        
+        // Advanced users can only see their own events
+        if (userRole === 'Advanced User') {
+            matchQuery.createdBy = parseInt(userId);
+        }
+        // Administrators can see all events
+        
+        const events = await db.collection('events').aggregate([
+            { $match: matchQuery },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'createdBy',
+                    foreignField: 'id',
+                    as: 'owner'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'applications',
+                    localField: 'id',
+                    foreignField: 'eventId',
+                    as: 'applications'
+                }
+            },
+            {
+                $addFields: {
+                    ownerEmail: {
+                        $ifNull: [
+                            { $arrayElemAt: ['$owner.email', 0] },
+                            null
+                        ]
+                    },
+                    participantCount: {
+                        $size: {
+                            $filter: {
+                                input: '$applications',
+                                as: 'app',
+                                cond: { $eq: ['$$app.status', 1] }
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    owner: 0,
+                    applications: 0
+                }
+            },
+            { $sort: { date: 1 } }
+        ]).toArray();
+        
+        res.json(events);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch events' });
+    }
+});
+
+// ---------- Get my events (for advanced users) ----------
+app.get('/my-events', verifyToken, async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        const userId = req.user.id;
+        
+        // Only Advanced Users can access this endpoint
+        if (userRole !== 'Advanced User') {
+            return res.status(403).json({ error: 'Access denied. This endpoint is for Advanced Users only.' });
+        }
+        
+        // Get events created by this user with participant counts
+        const events = await db.collection('events').aggregate([
+            { $match: { createdBy: parseInt(userId) } },
+            {
+                $lookup: {
+                    from: 'applications',
+                    localField: 'id',
+                    foreignField: 'eventId',
+                    as: 'applications'
+                }
+            },
+            {
+                $addFields: {
+                    participantCount: {
+                        $size: {
+                            $filter: {
+                                input: '$applications',
+                                as: 'app',
+                                cond: { $eq: ['$$app.status', 1] }
+                            }
+                        }
+                    }
+                }
+            },
+            { $project: { applications: 0 } },
+            { $sort: { date: 1 } }
+        ]).toArray();
+        
+        res.json(events);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch my events' });
+    }
+});
+
 // ---------- Get single event by ID ----------
 app.get('/events/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const event = await db.collection('events').findOne({ id: parseInt(id) });
-        if (!event) return res.status(404).json({ error: 'Event not found' });
-        res.json(event);
+        
+        const events = await db.collection('events').aggregate([
+            {
+                $match: { id: parseInt(id) }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'createdBy',
+                    foreignField: 'id',
+                    as: 'owner'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'applications',
+                    localField: 'id',
+                    foreignField: 'eventId',
+                    as: 'applications'
+                }
+            },
+            {
+                $addFields: {
+                    ownerEmail: {
+                        $ifNull: [
+                            { $arrayElemAt: ['$owner.email', 0] },
+                            null
+                        ]
+                    },
+                    participantCount: {
+                        $size: {
+                            $filter: {
+                                input: '$applications',
+                                as: 'app',
+                                cond: { $eq: ['$$app.status', 1] }
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    owner: 0,
+                    applications: 0
+                }
+            }
+        ]).toArray();
+        
+        if (events.length === 0) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+        
+        res.json(events[0]);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to fetch event' });
+    }
+});
+
+//----------- Get Applications (All events user has applied for) ----------
+app.get('/applications', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const applications = await db.collection('events').aggregate([
+            { 
+                $lookup: { from: "applications", localField: "id", foreignField: "eventId", as: "apps" }
+            },
+            { 
+                $match: { apps: { $elemMatch: { userId: parseInt(userId), status: { $in: [1, 2] } } } }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'createdBy',
+                    foreignField: 'id',
+                    as: 'owner'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'applications',
+                    localField: 'id',
+                    foreignField: 'eventId',
+                    as: 'applications'
+                }
+            },
+            {
+                $addFields: {
+                    ownerEmail: {
+                        $ifNull: [
+                            { $arrayElemAt: ['$owner.email', 0] },
+                            null
+                        ]
+                    },
+                    participantCount: {
+                        $size: {
+                            $filter: {
+                                input: '$applications',
+                                as: 'app',
+                                cond: { $eq: ['$$app.status', 1] }
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    owner: 0,
+                    applications: 0,
+                    apps: 0
+                }
+            },
+            { $sort: { date: 1 } }
+        ]).toArray();
+        res.json(applications);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch applications' });
     }
 });
 
@@ -252,7 +523,48 @@ app.get('/history', verifyToken, async (req, res) => {
             { 
                 $match: { apps: { $elemMatch: { userEmail: req.user.email, status: 1 } },$expr: { $lt: [ { $toDate: "$date" }, now ] }}
             },
-            { $project: { apps: 0 } }
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'createdBy',
+                    foreignField: 'id',
+                    as: 'owner'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'applications',
+                    localField: 'id',
+                    foreignField: 'eventId',
+                    as: 'applications'
+                }
+            },
+            {
+                $addFields: {
+                    ownerEmail: {
+                        $ifNull: [
+                            { $arrayElemAt: ['$owner.email', 0] },
+                            null
+                        ]
+                    },
+                    participantCount: {
+                        $size: {
+                            $filter: {
+                                input: '$applications',
+                                as: 'app',
+                                cond: { $eq: ['$$app.status', 1] }
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    owner: 0,
+                    applications: 0,
+                    apps: 0
+                }
+            }
         ]).toArray();
         res.json(history);
     } catch (err) {
@@ -266,11 +578,57 @@ app.get('/past', async (req, res) => {
         const todayEnd = new Date();
         todayEnd.setHours(23, 59, 59, 999);
 
-        const events = await db.collection('events').find({
-            $expr: {
-                $lte: [ { $toDate: "$date" }, todayEnd ]  // all events with date <= end of today
-            }
-        }).toArray();
+        const events = await db.collection('events').aggregate([
+            {
+                $match: {
+                    $expr: {
+                        $lte: [ { $toDate: "$date" }, todayEnd ]  // all events with date <= end of today
+                    }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'createdBy',
+                    foreignField: 'id',
+                    as: 'owner'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'applications',
+                    localField: 'id',
+                    foreignField: 'eventId',
+                    as: 'applications'
+                }
+            },
+            {
+                $addFields: {
+                    ownerEmail: {
+                        $ifNull: [
+                            { $arrayElemAt: ['$owner.email', 0] },
+                            null
+                        ]
+                    },
+                    participantCount: {
+                        $size: {
+                            $filter: {
+                                input: '$applications',
+                                as: 'app',
+                                cond: { $eq: ['$$app.status', 1] }
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    owner: 0,
+                    applications: 0
+                }
+            },
+            { $sort: { date: -1 } }
+        ]).toArray();
 
         res.json(events);
     } catch (err) {
@@ -280,9 +638,22 @@ app.get('/past', async (req, res) => {
 });
 
 // ---------- Get all participant of an Event ----------
-app.get('/eventParticipants/:id', async (req, res) => {
+app.get('/eventParticipants/:id', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
+        const userId = req.user.id;
+        const userRole = req.user.role;
+
+        // Check ownership for Advanced Users
+        if (userRole === 'Advanced User') {
+            const event = await db.collection('events').findOne({ id: parseInt(id) });
+            if (!event) {
+                return res.status(404).json({ error: 'Event not found' });
+            }
+            if (event.createdBy !== parseInt(userId)) {
+                return res.status(403).json({ error: 'You do not have permission to view participants of this event.' });
+            }
+        }
 
         const participants = await db.collection('applications').aggregate([
             { $match: {eventId: parseInt(id), status: 1} },
@@ -343,12 +714,20 @@ app.put('/events/:id', verifyToken, upload.single('image'), async (req, res) => 
     try {
         const { id } = req.params;
         const { title, date, location, permission, participationLimit, description, removeImage } = req.body;
+        const userId = req.user.id;
+        const userRole = req.user.role;
+        
         if (!title || !date || !location) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
         const event = await db.collection('events').findOne({ id: parseInt(id) });
         if (!event) return res.status(404).json({ error: 'Event not found' });
+        
+        // Ownership check: Advanced Users can only edit their own events
+        if (userRole === 'Advanced User' && event.createdBy !== parseInt(userId)) {
+            return res.status(403).json({ error: 'You do not have permission to edit this event. You can only edit events you created.' });
+        }
         const oldLimit = event.participationLimit;
         const oldDate = event.date;
         const newLimit = parseInt(participationLimit);
@@ -550,6 +929,19 @@ app.delete('/users/:id', async (req, res) => {
 app.delete('/events/:id', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
+        const userId = req.user.id;
+        const userRole = req.user.role;
+        
+        const event = await db.collection('events').findOne({ id: parseInt(id) });
+        if (!event) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+        
+        // Ownership check: Advanced Users can only delete their own events
+        if (userRole === 'Advanced User' && event.createdBy !== parseInt(userId)) {
+            return res.status(403).json({ error: 'You do not have permission to delete this event. You can only delete events you created.' });
+        }
+        
         const result = await db.collection('events').deleteOne({ id: parseInt(id) });
 
         if (result.deletedCount === 0) {

@@ -132,7 +132,10 @@ async function loadEvent() {
             return;
         }
         renderEvent(event);
-        if(currentUser.role == "Administrator") loadParticipant();
+        // Only load participants if user is logged in and is Administrator
+        if(currentUser && currentUser.role == "Administrator") {
+            loadParticipant();
+        }
     } catch (err) {
         console.error(err);
         eventContainer.innerHTML = '<p style="color: var(--muted);">Connection error. Make sure server is running.</p>';
@@ -143,6 +146,9 @@ async function renderEvent(event) {
     const imgSrc = event.imagePath;
 
     const past = isPastEvent(event.date);
+    const participantCount = event.participantCount || 0;
+    const maxParticipants = event.participationLimit || 0;
+    const isLimitReached = participantCount >= maxParticipants;
 
     let applyStatus = 0;
     if (currentUser && !past) {
@@ -159,12 +165,18 @@ async function renderEvent(event) {
         }
     }
 
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    };
+
     eventContainer.innerHTML = `
         <div class="event-detail-card">
-            <h2 style="margin-top:12px;">${event.title}</h2>
+            <h2 style="margin-top:12px; color: white;">${event.title}</h2>
             ${imgSrc ? `<img src="${imgSrc}" alt="Event Image" style="width:100%; max-height:300px; object-fit:cover; border-radius:6px;"/>` : ``}
             <p><strong>📅</strong> ${new Date(event.date).toLocaleDateString()} &nbsp; <strong>📍</strong> ${event.location}</p>
-            <p>Participant Limit: ${event.participationLimit}</p>
+            <p><strong>👥</strong> Participants: ${participantCount} / ${maxParticipants}</p>
             ${event.description ? `<p style="margin-top:8px;">${event.description}</p>` : ''}
 
             <div style="margin-top:16px;">
@@ -174,22 +186,31 @@ async function renderEvent(event) {
                         currentUser
                         ? (
                             isUserAllowed(event.permission, currentUser)
-                            ? `<button id="actionBtn" class="submit-btn" style="${
-                                applyStatus === 1 || applyStatus === 2 ? 'background-color:red;' : ''
-                            }">
-                                ${
-                                applyStatus === 1
-                                    ? 'Retract' : applyStatus === 2
-                                    ? 'Retract from waiting list' : 'Apply'
-                                }
-                            </button>`
+                            ? (
+                                isLimitReached && applyStatus === 0
+                                    ? `<button class="submit-btn" disabled style="background-color:gray; cursor:not-allowed;">Limit reached</button>`
+                                    : `<button id="actionBtn" class="submit-btn" style="${
+                                        applyStatus === 1 || applyStatus === 2 ? 'background-color:red;' : ''
+                                    }" ${isLimitReached && applyStatus === 0 ? 'disabled' : ''}>
+                                        ${
+                                        applyStatus === 1
+                                            ? 'Retract' : applyStatus === 2
+                                            ? 'Retract from waiting list' : 'Apply'
+                                        }
+                                    </button>`
+                            )
                             : `<button class="submit-btn" disabled style="background-color:gray; cursor:not-allowed;">
                                 Not eligible to apply
                             </button>`
                         )
-                        : `<a href="signin.html"><button class="submit-btn">Sign in to apply</button></a>`
+                        : `<a href="signin.html"><button class="submit-btn" ${isLimitReached ? 'disabled style="background-color:gray; cursor:not-allowed;">Limit reached' : '>Sign in to apply'}</button></a>`
                     )
                 }
+            </div>
+            
+            <div style="margin-top:20px; padding-top:15px; border-top:1px solid #475569; display:flex; justify-content:flex-end; gap:15px; font-size:0.85rem; color:var(--muted);">
+                ${event.ownerEmail ? `<span>👤 Owner: ${event.ownerEmail}</span>` : ''}
+                ${event.createdAt ? `<span>📅 Created: ${formatDate(event.createdAt)}</span>` : ''}
             </div>
         </div>
     `;
@@ -200,7 +221,7 @@ async function renderEvent(event) {
 function attachButtonHandler(event, applyStatus)
 {
     const actionBtn = document.getElementById('actionBtn');
-    if(!actionBtn) return;
+    if(!actionBtn || actionBtn.disabled) return;
 
     if (applyStatus === 0) {
         actionBtn.addEventListener('click', () => applyEvent(event));
@@ -224,13 +245,12 @@ async function applyEvent(event)
         }
 
         showSuccess(data.message || 'Applied successfully!');
-        renderEvent(event); // re-render to switch button to "Retract"
+        // Fetch updated event data and re-render
+        await loadEvent();
     } catch (err) {
         console.error('Apply error:', err);
         showError('Connection error. Make sure your server is running.');
     }
-
-    if(currentUser.role == "Administrator") loadParticipant();
 }
 
 async function retractEvent(event)
@@ -252,13 +272,12 @@ async function retractEvent(event)
         }
 
         showSuccess(data.message || 'Application retracted.');
-        renderEvent(event); // re-render to switch button back to "Apply"
+        // Fetch updated event data and re-render
+        await loadEvent();
     } catch (err) {
         console.error('Retract error:', err);
         showError('Connection error. Make sure your server is running.');
     }
-
-    if(currentUser.role == "Administrator") loadParticipant();
 }
 
 loadEvent();

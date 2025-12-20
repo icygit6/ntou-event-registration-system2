@@ -95,7 +95,7 @@ function renderParticipants(isEdit, eventData) {
     label.textContent = occupation;
     label.htmlFor = `participant_${index}`;
     label.style.cursor = "pointer";
-
+  
     // checkbox
     const checkbox = document.createElement("input");
     checkbox.style.position = "relative";
@@ -170,7 +170,8 @@ function hideForm() {
 // Fetch and Display Events
 async function loadEvents() {
     try {
-        const response = await fetch(`${API_URL}/events`, {
+        // Use /manage/events endpoint which filters by owner for advanced users
+        const response = await fetch(`${API_URL}/manage/events`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const events = await response.json();
@@ -282,27 +283,43 @@ function displayEvents(events) {
         return;
     }
     
+    const formatCreationDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    };
+    
     console.log('Displaying events:', events);
-    eventsList.innerHTML = events.map(event => `
+    eventsList.innerHTML = events.map(event => {
+        const participantCount = event.participantCount || 0;
+        const maxParticipants = event.participationLimit || 0;
+        
+        return `
         <div class="event-card"
             data-name="${event.title.toLowerCase()}" 
             data-date="${event.date}" 
         >
             <div class="event-content">
-                <h3>${event.title}</h3>
+                <h3 style="color: white;">${event.title}</h3>
                 ${event.imagePath ? `<img src="${event.imagePath}" alt="${event.title}" class="event-card-image" style="max-width:200px; border-radius:6px; margin-bottom:8px;">` : ''}
                 <div class="event-details">
                     <span>📅 ${formatDate(event.date)}</span>
                     <span>📍 ${event.location}</span>
+                    <span>👥 ${participantCount}/${maxParticipants}</span>
                 </div>
                 ${event.description ? `<p class="event-description">${event.description}</p>` : ''}
+                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #475569; display: flex; justify-content: flex-end; gap: 15px; font-size: 0.8rem; color: var(--muted);">
+                    ${event.ownerEmail ? `<span>👤 ${event.ownerEmail}</span>` : ''}
+                    ${event.createdAt ? `<span>📅 ${formatCreationDate(event.createdAt)}</span>` : ''}
+                </div>
             </div>
             <div class="event-actions">
                 <button class="edit-btn" onclick="showEditEventForm(${event.id})">Edit</button>
                 <button class="delete-btn" onclick="deleteEvent(${event.id})">Delete</button>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     //set default order list for events
     sortCat = "date"; sortOrd = "asc";    // sorting by date closest before displaying data

@@ -57,6 +57,18 @@ async function registerUser(nickname, emailOrPhone, password) {
     }
 }
 
+// Password toggle functionality
+const togglePassword = document.getElementById('togglePassword');
+const passwordInput = document.getElementById('password');
+
+if (togglePassword && passwordInput) {
+    togglePassword.addEventListener('click', () => {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        togglePassword.textContent = type === 'password' ? '👁️' : '👁️‍🗨️';
+    });
+}
+
 regiForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -66,7 +78,7 @@ regiForm.addEventListener('submit', async (e) => {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailOrPhone)) {
-        showError('Please enter a valid email or phone number.');
+        showError('Please enter a valid email.');
         return;
     }
 
