@@ -174,7 +174,7 @@ async function renderEvent(event) {
     eventContainer.innerHTML = `
         <div class="event-detail-card">
             <h2 style="margin-top:12px; color: white;">${event.title}</h2>
-            ${imgSrc ? `<img src="${imgSrc}" alt="Event Image" style="width:100%; max-height:300px; object-fit:cover; border-radius:6px;"/>` : ``}
+            ${imgSrc ? `<img src="${imgSrc}" alt="Event Image" style="width:100%; object-fit:cover; border-radius:6px;"/>` : ``}
             <p><strong>📅</strong> ${new Date(event.date).toLocaleDateString()} &nbsp; <strong>📍</strong> ${event.location}</p>
             <p><strong>👥</strong> Participants: ${participantCount} / ${maxParticipants}</p>
             ${event.description ? `<p style="margin-top:8px;">${event.description}</p>` : ''}

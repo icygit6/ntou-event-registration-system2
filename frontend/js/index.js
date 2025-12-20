@@ -100,14 +100,11 @@ if (currentUser) {
         }
     }
 
-    if(currentUser.role == "User")
-    {
-        const userLi = document.querySelector(".menu-item.user");
-        if (userLi) userLi.style.display = "none";
-    }
     if(currentUser.role != "Administrator")
     {
-        const userLi = document.querySelector(".menu-item.past");
+        let userLi = document.querySelector(".menu-item.past");
+        if (userLi) userLi.style.display = "none";
+        userLi = document.querySelector(".menu-item.user");
         if (userLi) userLi.style.display = "none";
     }
 }

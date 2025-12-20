@@ -68,7 +68,7 @@ app.get('/nextId', async (req, res) => {
 // ---------- Register endpoint ----------
 app.post('/register', async (req, res) => {
     try {
-        const { id, nickname, email_or_phone, password } = req.body;
+        const { id, nickname, email_or_phone, password, occupation } = req.body;
 
         // Check if email or phone already exists
         const existingUser = await db.collection('users').findOne({ email: email_or_phone });
@@ -82,7 +82,6 @@ app.post('/register', async (req, res) => {
         }
 
         const role = 'User';
-        const occupation = 'Student';
         const created_at = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
         const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
