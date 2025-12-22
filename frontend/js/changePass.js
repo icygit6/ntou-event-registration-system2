@@ -1,4 +1,7 @@
-const API_URL = '';
+const API_URL = 
+  typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? '' 
+    : 'http://localhost:5500';
 const errorMsg = document.getElementById('errorMsg');
 const successMsg = document.getElementById('successMsg');
 const nicknameInput = document.getElementById('nickname');

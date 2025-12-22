@@ -1,4 +1,7 @@
-const API_URL = '';
+const API_URL = 
+  typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? '' 
+    : 'http://localhost:5500';
 
 const signForm = document.getElementById('signForm');
 const submitBtn = document.getElementById('submit-btn');
