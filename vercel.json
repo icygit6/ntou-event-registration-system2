@@ -8,10 +8,6 @@
     {
       "src": "frontend/**",
       "use": "@vercel/static"
-    },
-    {
-      "src": "1741574543097.png",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -21,7 +17,11 @@
     },
     {
       "src": "/(.*\\.(css|js|png|jpg|svg|html))$",
-      "dest": "/$1"
+      "dest": "/frontend/$1"
+    },
+    {
+      "src": "/(.*\\.(css|js|png|jpg|svg|html))$",
+      "dest": "/backend/$1"
     },
     {
       "src": "/",
