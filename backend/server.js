@@ -9,9 +9,9 @@ const { sendEmail } = require("./email");
 const { MongoClient, ObjectId } = require('mongodb');
 
 const SALT_ROUNDS = 10;
-const SECRET_KEY = '9e7ae63e6d9e3654139277c630af4973';
+const SECRET_KEY = process.env.SECRET_KEY || '9e7ae63e6d9e3654139277c630af4973';
 const app = express();
-const port = 5500;
+const port =  process.env.PORT || 5500;
 
 app.use(cors());
 app.use(express.json());
@@ -19,6 +19,17 @@ app.use(express.json());
 const client = new MongoClient(process.env.MONGO_URI);
 let db;
 
+// Update CORS to accept frontend URL
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5500',
+  process.env.FRONTEND_URL || 'http://localhost:3000'
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 // Connect to MongoDB
 async function connectDB() {
     try {
@@ -1062,3 +1073,9 @@ app.patch('/events/:id/apply', verifyToken, async (req, res) => {
         res.status(500).json({ error: 'Failed to retract application' });
     }
 });
+
+// Connect to DB
+connectDB();
+
+// Export the app for Vercel
+module.exports = app;
