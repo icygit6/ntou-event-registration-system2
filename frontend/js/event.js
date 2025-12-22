@@ -1,7 +1,4 @@
-const API_URL = 
-  typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? '' 
-    : 'http://localhost:5500';
+const API_URL = '';
 const errorMsg = document.getElementById('errorMsg');
 const successMsg = document.getElementById('successMsg');
 
