@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:5500';
+const API_URL = '';
 const errorMsg = document.getElementById('errorMsg');
 const successMsg = document.getElementById('successMsg');
 const nicknameInput = document.getElementById('nickname');

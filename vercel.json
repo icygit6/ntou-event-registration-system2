@@ -2,11 +2,15 @@
   "version": 2,
   "builds": [
     {
-      "src": "/backend/server.js",
+      "src": "backend/server.js",
       "use": "@vercel/node"
     },
     {
       "src": "frontend/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "1741574543097.png",
       "use": "@vercel/static"
     }
   ],
@@ -17,7 +21,7 @@
     },
     {
       "src": "/(.*\\.(css|js|png|jpg|svg|html))$",
-      "dest": "/frontend/$1"
+      "dest": "/$1"
     },
     {
       "src": "/",

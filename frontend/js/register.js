@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:5500';
+const API_URL = '';
 
 const regiForm = document.getElementById('regiForm');
 const submitBtn = document.getElementById('submit-btn');
