@@ -16,16 +16,15 @@ const port = 5500;
 app.use(cors());
 app.use(express.json());
 
-const client = new MongoClient('mongodb://127.0.0.1:27017');
-const dbName = 'eventRegistration';
+const client = new MongoClient(process.env.MONGO_URI);
 let db;
 
 // Connect to MongoDB
 async function connectDB() {
     try {
         await client.connect();
-        db = client.db(dbName);
-        console.log(`Connected to DB: ${dbName}`);
+        db = client.db(process.env.DB_NAME || 'eventRegistration');
+        console.log(`✅ Connected to MongoDB Atlas DB: ${db.databaseName}`);
     } catch (err) {
         console.error("❌ Database connection failed:", err);
         process.exit(1); // stop if DB fails
