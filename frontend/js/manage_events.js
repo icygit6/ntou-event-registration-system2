@@ -1,5 +1,5 @@
-//const API_URL = '';
-const API_URL = 'http://localhost:5500';
+const API_URL = '';
+// const API_URL = 'http://localhost:5500';
 // Check if user is logged in
 const token = localStorage.getItem('authToken');
 let currentUser = null;
