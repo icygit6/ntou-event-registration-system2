@@ -107,7 +107,7 @@ Includes **all system permissions**, plus:
 The system is deployed using **Vercel**.
 
 🔗 Live Demo:  
-https://ntou-event-registration-system2.vercel.app/index.html
+https://ntou-event-registration-system2-five.vercel.app/index.html
 
 ---
 
