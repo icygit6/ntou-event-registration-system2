@@ -1,5 +1,5 @@
-const API_URL = '';
-
+//const API_URL = '';
+const API_URL = 'http://localhost:5500';
 const regiForm = document.getElementById('regiForm');
 const submitBtn = document.getElementById('submit-btn');
 const errorMsg = document.getElementById('errorMsg');

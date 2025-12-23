@@ -19,17 +19,17 @@ app.use(express.json());
 const client = new MongoClient(process.env.MONGO_URI);
 let db;
 
-// Update CORS to accept frontend URL
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5500',
-  process.env.FRONTEND_URL || 'http://localhost:3000'
-];
+// // Update CORS to accept frontend URL
+// const allowedOrigins = [
+//   'http://localhost:3000',
+//   'http://localhost:5500',
+//   process.env.FRONTEND_URL || 'http://localhost:3000'
+// ];
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
+// app.use(cors({
+//   origin: allowedOrigins,
+//   credentials: true
+// }));
 // Connect to MongoDB
 async function connectDB() {
     try {
