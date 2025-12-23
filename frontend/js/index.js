@@ -1,4 +1,4 @@
-const API_URL = '';
+const API_URL = '/api';
 // const API_URL = 'http://localhost:5500';
 const headerButtons = document.getElementById('headerButtons');
 const eventsList = document.getElementById('eventsList');
