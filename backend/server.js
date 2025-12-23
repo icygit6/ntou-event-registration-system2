@@ -704,7 +704,7 @@ app.post('/events', verifyToken, upload.single('image'), async (req, res) => {
             permission,
             participationLimit: parseInt(participationLimit),
             description: description || '',
-            imagePath: req.file ? req.file.path : null,
+            imagePath: req.file ? `uploads/${req.file.filename}` : null,
             createdBy: req.user.id,
             createdAt: new Date().toISOString()
         };
@@ -761,7 +761,7 @@ app.put('/events/:id', verifyToken, upload.single('image'), async (req, res) => 
             updatedAt: new Date().toISOString()
         };
         if (req.file) {
-            updateData.imagePath = req.file.path;
+            updateData.imagePath = `uploads/${req.file.filename}`;
         } else if (removeImage === 'true') {
             updateData.imagePath = null;
         }

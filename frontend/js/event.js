@@ -1,4 +1,4 @@
-const API_URL = '';
+const API_URL = 'http://localhost:5500';
 const errorMsg = document.getElementById('errorMsg');
 const successMsg = document.getElementById('successMsg');
 
@@ -76,7 +76,12 @@ function showMessage(txt, isError = false) {
 
 async function loadParticipant() {
     const id = getQueryParam('id');
-    const res = await fetch(`${API_URL}/eventParticipants/${encodeURIComponent(id)}`);
+    const res = await fetch(`${API_URL}/eventParticipants/${encodeURIComponent(id)}`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    });
+    
     const event = await res.json();
     if (!res.ok) {
         eventParticipationContainer.innerHTML = `<p style="color: var(--muted);">${event.error || 'Participant not found'}</p>`;
